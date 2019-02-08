@@ -47,7 +47,7 @@ GOOGLE_CLIENT_ID: *Google API Credentials*
 GOOGLE_CLIENT_SECRET: *Google API Credentials*  
 MONGODB_URI: *Mongo DB credentials*  
 NUDGE_BOT_TOKEN: *Bot User OAuth Access Token*  
-TZ: America/New_York *The time zon you are in*
+TZ: America/New_York *The timezone you are in*
 
 `npm start`
 

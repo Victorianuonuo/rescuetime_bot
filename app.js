@@ -13,7 +13,7 @@ var {bot} = require('./bot')
 
 var http = require("http");
 setInterval(function() {
-    http.get(process.env.DOMAIN_HTTP);
+    http.get(process.env.DOMAIN);
     console.log("keepwake");
 }, 600000); // every 10 minutes (600000)
 //This is for the wake process, mongthly quoto limited
