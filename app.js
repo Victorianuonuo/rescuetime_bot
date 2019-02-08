@@ -96,6 +96,7 @@ app.get('/connect/callback', function(req, res) {
                     .catch((err) => {
                         console.log('error in newuser save of connectcallback');
                         res.status(400).json({error:err});
+                        bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again by saying Hi to me!", {as_user:true});
                     })
                 }
             });

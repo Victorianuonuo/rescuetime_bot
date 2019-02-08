@@ -34,7 +34,7 @@ bot.on('start', function() {
     console.log('bot start!');
     startCronJob(bot);
     //dailyCheck(bot); 
-    bot.postMessageToUser('so395', 'Hi, This is nudge bot!',{as_user:true}); 
+    //bot.postMessageToUser('so395', 'Hi, This is nudge bot!',{as_user:true}); 
 });
 
 
