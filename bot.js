@@ -41,11 +41,13 @@ bot.on('start', function() {
 bot.on("message", message => {
   slackID = message.user;
   const userId = message.user;
-  console.log('-----------------');
-  console.log(message);
-  console.log("Timenow: "+(new Date()).toISOString());
-  console.log("Timenow: "+(new Date()));
-  console.log('-----------------');
+  if(message.type!='error'){
+    console.log('-----------------');
+    console.log(message);
+    console.log("Timenow: "+(new Date()).toISOString());
+    console.log("Timenow: "+(new Date()));
+    console.log('-----------------');
+  }
   switch (message.type) {
   case "message":
     if (message.channel[0] === "D" && message.bot_id === undefined) {
@@ -125,6 +127,7 @@ function listEvents(bot, user, auth) {
   }, (err, res) => {
     if (err) return console.log('The API returned an error: ' + err);
     const events = res.data.items;
+    console.log(events);
     if (events.length) {
       console.log('The number of events: '+ events.length);
       bot.postMessage(user.slackID, 'Fantastic job! You made plans today',{as_user:true});

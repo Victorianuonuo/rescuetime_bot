@@ -26,6 +26,9 @@ Bot: "Hi! You are connected with Google Calendar now!"
 #### Authenicating throught Google:  
 ![](./resources/authen.gif)
 
+#### Checking events today:  
+![](./resources/7am.jpeg)
+
 ## Install
 
 `npm install`
