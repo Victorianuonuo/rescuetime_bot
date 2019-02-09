@@ -11,9 +11,9 @@ var channelID;
 var url;
 var {bot} = require('./bot')
 
-var http = require("http");
+var https = require("https");
 setInterval(function() {
-    http.get(process.env.DOMAIN);
+    https.get(process.env.DOMAIN);
     console.log("keepwake");
 }, 300000); // every 5 minutes (300000)
 //This is for the wake process, mongthly quoto limited
