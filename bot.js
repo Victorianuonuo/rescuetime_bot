@@ -18,12 +18,12 @@ var bot = new SlackBot({
     name: 'nudgebot'
 });
 
-const startCronJob = function(bot){
+const startCronJob = function(bot, time, is_print=false){
     var job = new CronJob({
-      cronTime: '00 51 01 * * *',
+      cronTime: '00 00 '+time+' * * *',
       onTick: function() {
         console.log('tick!');
-        dailyCheck(bot); 
+        dailyCheck(bot, is_print); 
       }
         
     });
@@ -32,7 +32,12 @@ const startCronJob = function(bot){
 
 bot.on('start', function() {
     console.log('bot start!');
-    startCronJob(bot);
+    for (var i = 0; i <= 23; i++) {
+        var is_print=false;
+        if(i==7)
+          is_print=true;
+        startCronJob(bot,("00" + i).slice(-2),is_print);
+    }
     //dailyCheck(bot); 
     //bot.postMessageToUser('so395', 'Hi, This is nudge bot!',{as_user:true}); 
 });
@@ -87,7 +92,7 @@ function authenticate(slackID, message){
   });
 }
 
-function dailyCheck(bot){
+function dailyCheck(bot, is_print=false){
   User.find({}, function(err, users) {
       var userMap = {};
 
@@ -104,7 +109,7 @@ function dailyCheck(bot){
           user.token = tokens;
           user.save()
           .then((user)=>{
-            listEvents(bot, user, oauth2Client);
+            listEvents(bot, user, oauth2Client, is_print);
           })
         });
       });
@@ -112,7 +117,7 @@ function dailyCheck(bot){
   });
 }
 
-function listEvents(bot, user, auth) {
+function listEvents(bot, user, auth, is_print=false) {
   const calendar = google.calendar({version: 'v3', auth});
   var timeMin = new Date();
   timeMin.setHours(0,0,0,0);
@@ -121,19 +126,27 @@ function listEvents(bot, user, auth) {
   console.log("timeMin: "+timeMin.toISOString()+" "+timeMin);
   console.log("timeMax: "+timeMax.toISOString()+" "+timeMax);
   calendar.events.list({
+    auth: auth,
     calendarId: 'primary',
     timeMin: timeMin.toISOString(),
-    timeMax: timeMax.toISOString()
+    timeMax: timeMax.toISOString(),
+    maxResults: 10, // caution here! 
+    singleEvents: true, // try to prevent empty list returned
+    orderBy: 'startTime'
   }, (err, res) => {
     if (err) return console.log('The API returned an error: ' + err);
     const events = res.data.items;
     console.log(events);
     if (events.length) {
       console.log('The number of events: '+ events.length);
-      bot.postMessage(user.slackID, 'Fantastic job! You made plans today',{as_user:true});
+      if(is_print){
+        bot.postMessage(user.slackID, 'Fantastic job! You made plans today',{as_user:true});
+      }
     } else {
       console.log('No upcoming events found.');
-      bot.postMessage(user.slackID, 'You are slacking off. No plans made today',{as_user:true});
+      if(is_print){
+        bot.postMessage(user.slackID, 'You are slacking off. No plans made today',{as_user:true});
+      }
     }
   });
 }
