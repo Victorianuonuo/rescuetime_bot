@@ -20,7 +20,7 @@ var bot = new SlackBot({
 
 const startCronJob = function(bot){
     var job = new CronJob({
-      cronTime: '00 00 07 * * *',
+      cronTime: '00 51 01 * * *',
       onTick: function() {
         console.log('tick!');
         dailyCheck(bot); 
