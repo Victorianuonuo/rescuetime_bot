@@ -115,7 +115,7 @@ function dailyCheck(bot, is_print=false){
               oauth2Client.setCredentials(user.token);
               //console.log(oauth2Client, user.email);
               user.save().then((user)=>{
-                  listEvents(bot, user, oauth2Client);
+                  listEvents(bot, user, oauth2Client, is_print);
               });
             });
       });
