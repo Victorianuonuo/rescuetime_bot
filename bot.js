@@ -18,6 +18,12 @@ var bot = new SlackBot({
     name: 'nudgebot'
 });
 
+var oauth2Client = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET,
+            process.env.DOMAIN + '/connect/callback'
+);
+
 const startCronJob = function(bot, time, is_print=false){
     var job = new CronJob({
       cronTime: '00 00 '+time+' * * *',
@@ -94,24 +100,24 @@ function authenticate(slackID, message){
 
 function dailyCheck(bot, is_print=false){
   User.find({}, function(err, users) {
-      var userMap = {};
-
       users.forEach(function(user) {
-        oauth2Client = new google.auth.OAuth2(
-          process.env.GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_CLIENT_SECRET,
-          process.env.DOMAIN + '/connect/callback'
-        );
-        oauth2Client.setCredentials({
-          refresh_token: user.token.refresh_token
-        });
-        oauth2Client.refreshAccessToken(function(err, tokens) {
-          user.token = tokens;
-          user.save()
-          .then((user)=>{
-            listEvents(bot, user, oauth2Client, is_print);
-          })
-        });
+          //oauth2Client.setCredentials(user.token);
+          //console.log(oauth2Client);
+          //listEvents(bot, user, oauth2Client);
+
+          oauth2Client.setCredentials({
+            refresh_token: user.token.refresh_token
+          });
+          oauth2Client.getRequestHeaders().then(headers=>{
+              var patten = 'Bearer ';
+              var access_token = headers.Authorization.substring(patten.length);
+              user.token.access_token = access_token;
+              oauth2Client.setCredentials(user.token);
+              //console.log(oauth2Client, user.email);
+              user.save().then((user)=>{
+                  listEvents(bot, user, oauth2Client);
+              });
+            });
       });
 
   });
@@ -136,14 +142,14 @@ function listEvents(bot, user, auth, is_print=false) {
   }, (err, res) => {
     if (err) return console.log('The API returned an error: ' + err);
     const events = res.data.items;
-    console.log(events);
+    //console.log(events);
     if (events.length) {
-      console.log('The number of events: '+ events.length);
+      console.log('The number of events: '+ events.length, user.email);
       if(is_print){
         bot.postMessage(user.slackID, 'Fantastic job! You made plans today',{as_user:true});
       }
     } else {
-      console.log('No upcoming events found.');
+      console.log('No upcoming events found.', user.email);
       if(is_print){
         bot.postMessage(user.slackID, 'You are slacking off. No plans made today',{as_user:true});
       }
