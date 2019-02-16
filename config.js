@@ -1,5 +1,5 @@
 config = {
-	is_greet : true,
+	is_greet : false,
 };
 
 module.exports = config;

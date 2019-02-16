@@ -125,7 +125,7 @@ function dailyCheck(is_print=false){
             console.log(err);
         }else{
             users.forEach(function(user) {
-                userAuthen(user);
+                userAuthen(user, is_print);
             });
         }
     });
