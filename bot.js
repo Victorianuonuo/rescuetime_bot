@@ -8,6 +8,7 @@ var slackID;
 var _ = require('underscore')
 var googleAuth = require('google-auth-library');
 var CronJob = require('cron').CronJob;
+var config = require('./config');
 
 const envKey = process.env.NUDGE_BOT_TOKEN;
 mongoose.Promise = global.Promise;
@@ -19,19 +20,18 @@ var bot = new SlackBot({
 });
 
 var oauth2Client = new google.auth.OAuth2(
-            process.env.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_CLIENT_SECRET,
-            process.env.DOMAIN + '/connect/callback'
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.DOMAIN + '/connect/callback'
 );
 
-const startCronJob = function(bot, time, is_print=false){
+const startCronJob = function(time, is_print=false){
     var job = new CronJob({
-      cronTime: '00 00 '+time+' * * *',
-      onTick: function() {
-        console.log('tick!');
-        dailyCheck(bot, is_print); 
-      }
-        
+        cronTime: '00 00 '+time+' * * *',
+        onTick: function() {
+            console.log('tick!');
+            dailyCheck(is_print);
+        }
     });
     job.start();
 }
@@ -42,121 +42,150 @@ bot.on('start', function() {
         var is_print=false;
         if(i==7)
           is_print=true;
-        startCronJob(bot,("00" + i).slice(-2),is_print);
+        startCronJob(("00" + i).slice(-2),is_print);
     }
-    //dailyCheck(bot); 
+    //dailyCheck();
     //bot.postMessageToUser('so395', 'Hi, This is nudge bot!',{as_user:true}); 
+    const MESSAGE = "Hi! This is nudge bot. We will inform you whether you have any event during the day at 7 am. Start with giving us permission to read your Google Calendar.";
+    User.find({}, function(err, users){
+        user_ids = Array.from(users, usr=>usr.slackID);
+        bot.getUsers().then(users=>
+            users.members.forEach(function(user){
+                if(config.is_greet && !user_ids.includes(user.id) && !user.is_bot){
+                    bot.postMessage(user.id, MESSAGE, {as_user:true}).then(() => authenticate(user.id));
+                }
+            }
+        ));
+    });
+
 });
 
 
 bot.on("message", message => {
-  slackID = message.user;
-  const userId = message.user;
-  if(message.type!='error'){
-    console.log('-----------------');
-    console.log(message);
-    console.log("Timenow: "+(new Date()).toISOString());
-    console.log("Timenow: "+(new Date()));
-    console.log('-----------------');
-  }
-  switch (message.type) {
-  case "message":
-    if (message.channel[0] === "D" && message.bot_id === undefined) {
-      User.findOne({slackID: slackID}).exec(function(err, user){
-        if(err){
-          console.log(err)
-        } else {
-          console.log(user);
-        if(!user){
-          authenticate(slackID, message);
-        } else {
-          bot.postMessage(message.user, 'Hi! You are connected with Google Calendar now!', {as_user:true});
-        }
-        }
-      })
+    slackID = message.user;
+    const userId = message.user;
+    if(message.type!='error'){
+        console.log('-----------------');
+        console.log(message);
+        console.log("Timenow: "+(new Date()).toISOString());
+        console.log("Timenow: "+(new Date()));
+        console.log('-----------------');
     }
-    break;
-  }
-  
+    const MESSAGE = "Hi! You are connected with Google Calendar now! Reminders for every day's events will come in 7 am.";
+    switch (message.type) {
+    case "message":
+        if (message.channel[0] === "D" && message.bot_id === undefined) {
+            User.findOne({slackID: slackID}).exec(function(err, user){
+                if(err){
+                    console.log(err)
+                } else {
+                    console.log(user);
+                if(!user){
+                    authenticate(slackID);
+                } else {
+                    console.log("message,", message);
+                    bot.postMessage(message.user, MESSAGE, {as_user:true});
+                    if(message.text && message.text.toLowerCase().includes('calendar')){
+                        oneTimeCheck(user, true);
+                    }
+                }
+                }
+            })
+        }
+        break;
+    }
+    
 });
 
-function authenticate(slackID, message){
-  bot.postMessage(message.user, 'Please click the following button to activate your account' , {
-  as_user:true,
-  "attachments": [
-    {
-      "fallback": "activate",
-      "actions": [
+function authenticate(slackID){
+    bot.postMessage(slackID, 'Please click the following button to activate your account' , {
+    as_user:true,
+    "attachments": [
         {
-          "type": "button",
-          "text": "connect",
-          "url": process.env.DOMAIN + '/oauth?auth_id='+slackID+'&cnl_id='+message.channel
+            "fallback": "activate",
+            "actions": [
+                {
+                    "type": "button",
+                    "text": "connect",
+                    "url": process.env.DOMAIN + '/oauth?auth_id='+slackID
+                }
+            ]
         }
-      ]
-    }
-  ]
-  });
+    ]
+    });
 }
 
-function dailyCheck(bot, is_print=false){
-  User.find({}, function(err, users) {
-      users.forEach(function(user) {
-          //oauth2Client.setCredentials(user.token);
-          //console.log(oauth2Client);
-          //listEvents(bot, user, oauth2Client);
+function oneTimeCheck(user, is_print=false){
+    userAuthen(user, is_print);
+}
 
-          oauth2Client.setCredentials({
-            refresh_token: user.token.refresh_token
-          });
-          oauth2Client.getRequestHeaders().then(headers=>{
-              var patten = 'Bearer ';
-              var access_token = headers.Authorization.substring(patten.length);
-              user.token.access_token = access_token;
-              oauth2Client.setCredentials(user.token);
-              //console.log(oauth2Client, user.email);
-              user.save().then((user)=>{
-                  listEvents(bot, user, oauth2Client, is_print);
-              });
+function dailyCheck(is_print=false){
+    User.find({}, function(err, users) {
+        if(err){
+            console.log(err);
+        }else{
+            users.forEach(function(user) {
+                userAuthen(user);
             });
-      });
-
-  });
+        }
+    });
 }
 
-function listEvents(bot, user, auth, is_print=false) {
-  const calendar = google.calendar({version: 'v3', auth});
-  var timeMin = new Date();
-  timeMin.setHours(0,0,0,0);
-  var timeMax = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000);
-  timeMax.setHours(0,0,0,0);
-  console.log("timeMin: "+timeMin.toISOString()+" "+timeMin);
-  console.log("timeMax: "+timeMax.toISOString()+" "+timeMax);
-  calendar.events.list({
-    auth: auth,
-    calendarId: 'primary',
-    timeMin: timeMin.toISOString(),
-    timeMax: timeMax.toISOString(),
-    maxResults: 10, // caution here! 
-    singleEvents: true, // try to prevent empty list returned
-    orderBy: 'startTime'
-  }, (err, res) => {
-    if (err) return console.log('The API returned an error: ' + err);
-    const events = res.data.items;
-    //console.log(events);
-    if (events.length) {
-      console.log('The number of events: '+ events.length, user.email);
-      if(is_print){
-        bot.postMessage(user.slackID, 'Fantastic job! You made plans today',{as_user:true});
-      }
-    } else {
-      console.log('No upcoming events found.', user.email);
-      if(is_print){
-        bot.postMessage(user.slackID, 'You are slacking off. No plans made today',{as_user:true});
-      }
-    }
-  });
+function userAuthen(user, is_print=false){
+
+    //oauth2Client.setCredentials(user.token);
+    //console.log(oauth2Client);
+    //listEvents(user, oauth2Client);
+
+    oauth2Client.setCredentials({
+        refresh_token: user.token.refresh_token
+    });
+    oauth2Client.getRequestHeaders().then(headers=>{
+        var patten = 'Bearer ';
+        var access_token = headers.Authorization.substring(patten.length);
+        user.token.access_token = access_token;
+        oauth2Client.setCredentials(user.token);
+        //console.log(oauth2Client, user.email);
+        user.save().then((user)=>{
+            listEvents(user, oauth2Client, is_print);
+        });
+    });
+}
+
+function listEvents(user, auth, is_print=false) {
+    const calendar = google.calendar({version: 'v3', auth});
+    var timeMin = new Date();
+    timeMin.setHours(0,0,0,0);
+    var timeMax = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000);
+    timeMax.setHours(0,0,0,0);
+    console.log("timeMin: "+timeMin.toISOString()+" "+timeMin);
+    console.log("timeMax: "+timeMax.toISOString()+" "+timeMax);
+    calendar.events.list({
+        auth: auth,
+        calendarId: 'primary',
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
+        maxResults: 10, // caution here!
+        singleEvents: true, // try to prevent empty list returned
+        orderBy: 'startTime'
+    }, (err, res) => {
+        if (err) return console.log('The API returned an error: ' + err);
+        const events = res.data.items;
+        //console.log(events);
+        if (events.length) {
+            console.log('The number of events: '+ events.length, user.email);
+            if(is_print){
+                bot.postMessage(user.slackID, 'Fantastic job! You made plans today',{as_user:true});
+            }
+        } else {
+            console.log('No upcoming events found.', user.email);
+            if(is_print){
+                bot.postMessage(user.slackID, 'You are slacking off. No plans made today',{as_user:true});
+            }
+        }
+    });
 }
 
 module.exports = {
-  bot: bot
+    bot: bot
 }

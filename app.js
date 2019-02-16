@@ -7,7 +7,6 @@ var models = require('./models');
 var googleAuth = require('google-auth-library');
 var fs = require('fs');
 var slackID;
-var channelID;
 var url;
 var {bot} = require('./bot')
 
@@ -50,7 +49,6 @@ app.get('/oauth', function(req, res){
         }))
     });
     slackID = req.query.auth_id;
-    channelID = req.query.cnl_id;
     res.redirect(url);
 })
 
@@ -89,9 +87,8 @@ app.get('/connect/callback', function(req, res) {
                     });
                     newUser.save()
                     .then( () => {
-                        console.log("channelID: "+channelID);
                         res.status(200).send("Your account was successfuly authenticated");
-                        bot.postMessage(slackID, "Congratulations! You are successfully connected to google calendar", {as_user:true});
+                        bot.postMessage(slackID, "Congratulations! You are successfully connected to google calendar. Reminders for every day's events will come in 7 am.", {as_user:true});
                     })
                     .catch((err) => {
                         console.log('error in newuser save of connectcallback');
