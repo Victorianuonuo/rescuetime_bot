@@ -36,10 +36,15 @@ Bot: "Hi! You are connected with Google Calendar now! Reminders for every day's 
 After installing the packages you need, there are still some environment variables you need to set up to run this bot,
 
 **DOMAIN**: *Heroku domain name*
+
 **GOOGLE_CLIENT_ID**: *Google API Credentials*
+
 **GOOGLE_CLIENT_SECRET**: *Google API Credentials*
+
 **MONGODB_URI**: *Mongo DB credentials*
+
 **NUDGE_BOT_TOKEN**: *Bot User OAuth Access Token*
+
 **TZ**: America/New_York *The timezone you are in*
 
 **NUDGE_BOT_TOKEN, DOMAIN**: You will need to create a slack bot and deploy it to heroku( or ngrok as long as it has domain name for the app to be registered in Google API), then get the token for the bot and domain name. Instructions on how to do this and set up environment variables in heroku can be found [here.](https://medium.com/@alexstroulger/how-to-build-a-slackbot-600635b12a38)
