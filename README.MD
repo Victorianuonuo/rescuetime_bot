@@ -31,7 +31,9 @@ Bot: "Hi! You are connected with Google Calendar now! Reminders for every day's 
 
 ## Set up
 
-`npm install`
+First you need to install node.js, which is what we use in this project. Instructions can be found [here.](https://medium.com/@js_tut/installing-node-js-on-pc-mac-and-linux-getting-started-with-react-from-scratch-ea24653e0ab4)
+
+Then `npm install` to install the packages need.
 
 After installing the packages you need, there are still some environment variables you need to set up to run this bot,
 
