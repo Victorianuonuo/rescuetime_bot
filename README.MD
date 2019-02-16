@@ -53,7 +53,7 @@ After installing the packages you need, there are still some environment variabl
 
 **GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET**: Instructions on how to get Google Calendar API key can be found [here.](https://medium.com/@karanbhomia/integrating-google-calendar-api-to-web-app-using-serverless-node-js-functions-part-1-of-2-8a176595110b) The instructions also show why we need to deploy the app online and get a domain name for Google Calendar API.
 
-**MONGODB_URI**: You will also need to set up a mongodb. Instructions on how to do this can be found [here.](http://fredrik.anderzon.se/2017/01/17/setting-up-a-free-mongodb-database-on-mlab-and-connecting-to-it-with-node-js/). Use the URL starting with mongodb://<dbuser>:<dbpassword>@\*.mlab.com:\*/\* as MONGODB_URI.
+**MONGODB_URI**: You will also need to set up a mongodb. Instructions on how to do this can be found [here](http://fredrik.anderzon.se/2017/01/17/setting-up-a-free-mongodb-database-on-mlab-and-connecting-to-it-with-node-js/). Use the URL mongodb://<dbuser>:<dbpassword>@\*.mlab.com:\*/\* as MONGODB_URI.
 
 **TZ**: Set which time zone you would want the bot to be. List of tz database time zones can be found [here.](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
 
