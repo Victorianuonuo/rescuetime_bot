@@ -1,6 +1,6 @@
 var logger = require('morgan');
 const {google} = require('googleapis');
-var {User} = require('./models')
+var {User, Apikey} = require('./models')
 var mongoose = require('mongoose');
 var _ = require('underscore');
 var models = require('./models');
@@ -8,7 +8,9 @@ var googleAuth = require('google-auth-library');
 var fs = require('fs');
 var slackID;
 var url;
-var {bot} = require('./bot')
+var request = require('request');
+var {bot, requestResuetime} = require('./bot');
+var axios = require('axios');
 
 var https = require("https");
 setInterval(function() {
@@ -52,6 +54,78 @@ app.get('/oauth', function(req, res){
     res.redirect(url);
 })
 
+app.post('/apikey', function(req, res){
+    var data = JSON.parse(req.body.payload);
+    if(!slackID){
+        slackID = data.user.id;
+    }
+    console.log(data);
+    if(data.type=="dialog_submission"){
+        var token = data.submission.apikey;
+        console.log("token: ", token);
+        var newApikey = new Apikey({
+                        slackID: slackID,
+                        rescuetime_key: token,
+                    });
+        var url = "https://www.rescuetime.com/anapi/alerts_feed?key="+token;
+        console.log("urlll: ", url);
+        axios.get(url).then(function(response){
+            console.log(response.data);
+            newApikey.save()
+            .then( () => {
+                res.send();
+                bot.postMessage(slackID, "Congratulations! You successfully add rescuetime.", {as_user:true});
+                })
+            .catch((err) => {
+                console.log('error in new rescuetime api');
+                res.status(400).json({error:err});
+                bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again by saying rescuetime to me!", {as_user:true});
+            });
+        }).catch(function(error) {
+            console.log("error");
+            bot.postMessage(slackID, "Ooops!!! Invalid key. Please try agin by saying rescuetime to me and input the right key", {as_user:true});
+        });
+        res.send();
+    }else if(data.type == "interactive_message"){
+        if(data.actions[0].name == "rescuetime_api_key_yes"){
+            var requestData = {
+                "trigger_id": data.trigger_id,
+                "dialog": {
+                    "callback_id": "rescuetime_callback",
+                    "title": "Request a Ride",
+                    "submit_label": "Request",
+                    "notify_on_cancel": true,
+                    "state": "Limo",
+                    "elements": [
+                    {
+                        "label": "Your rescuetime API key",
+                        "name": "apikey",
+                        "type": "text",
+                        "placeholder": "Your rescuetime API key"
+                    },
+                    ],
+                },
+            };
+            var requestJson = {
+                url: "https://api.slack.com/api/dialog.open",
+                method: "POST",
+                json: true,
+                headers: {
+                    "content-type": "application/json",
+                    "Authorization": "Bearer "+process.env.NUDGE_BOT_TOKEN,
+                },
+                body: requestData,
+            };
+            console.log(requestJson);
+            request(requestJson);
+        }else if(data.actions[0].name == "rescuetime_api_key_no"){
+            bot.postMessage(slackID, "So sorry that you said no to add rescuetime. Maybe you would change your mind later.", {as_user:true});
+        }
+    };
+    
+})
+
+
 app.get('/connect/callback', function(req, res) {
     const code = req.query.code;
     oauth2Client = new google.auth.OAuth2(
@@ -88,7 +162,8 @@ app.get('/connect/callback', function(req, res) {
                     newUser.save()
                     .then( () => {
                         res.status(200).send("Your account was successfuly authenticated");
-                        bot.postMessage(slackID, "Congratulations! You are successfully connected to google calendar. Reminders for every day's events will come in 7 am.", {as_user:true});
+                        bot.postMessage(slackID, "Congratulations! You are successfully connected to google calendar. Reminders for every day's events will come in at 7 am.", {as_user:true});
+                        setTimeout(requestResuetime(slackID), 1000);
                     })
                     .catch((err) => {
                         console.log('error in newuser save of connectcallback');

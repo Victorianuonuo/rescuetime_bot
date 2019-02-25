@@ -3,7 +3,7 @@ var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); // only when test bot.js
 var models = require('./models');
 const {google} = require('googleapis');
-var {User} = require('./models');
+var {User, Apikey} = require('./models');
 var slackID;
 var _ = require('underscore')
 var googleAuth = require('google-auth-library');
@@ -46,7 +46,7 @@ bot.on('start', function() {
     }
     //dailyCheck();
     //bot.postMessageToUser('so395', 'Hi, This is nudge bot!',{as_user:true}); 
-    const MESSAGE = "Hi! This is nudge bot. We will inform you whether you have any event during the day at 7 am. Start with giving us permission to read your Google Calendar.";
+    const MESSAGE = "Hi! This is nudge bot. We will inform you whether you have any event during the day at 7 am. Start with giving us permission to read your Google Calendar, and we would not edit or delete your calendar.";
     User.find({}, function(err, users){
         user_ids = Array.from(users, usr=>usr.slackID);
         bot.getUsers().then(users=>
@@ -71,7 +71,7 @@ bot.on("message", message => {
         console.log("Timenow: "+(new Date()));
         console.log('-----------------');
     }
-    const MESSAGE = "Hi! You are connected with Google Calendar now! Reminders for every day's events will come in 7 am.";
+    const MESSAGE = "Hi! You are connected with Google Calendar now! Reminders for every day's events will come in at 7 am.";
     switch (message.type) {
     case "message":
         if (message.channel[0] === "D" && message.bot_id === undefined) {
@@ -85,9 +85,15 @@ bot.on("message", message => {
                 } else {
                     console.log("message,", message);
                     bot.postMessage(message.user, MESSAGE, {as_user:true});
-                    if(message.text && message.text.toLowerCase().includes('calendar')){
-                        oneTimeCheck(user, true);
+                    if(message.text ){
+                        if(message.text.toLowerCase().includes('calendar')){
+                            oneTimeCheck(user, true);
+                        }else if(message.text.toLowerCase().includes('rescuetime')){
+                            requestResuetime(slackID);
+                        }
+                        
                     }
+
                 }
                 }
             })
@@ -186,6 +192,49 @@ function listEvents(user, auth, is_print=false) {
     });
 }
 
+function requestResuetime(slackID){
+    Apikey.findOne({slackID: slackID}).exec(function(err, user){
+        if(err){
+            console.log(err)
+        } else {
+            console.log(user);
+            if(!user){
+                var requestData = {
+                    as_user: true,
+                    "text": "Would you like to add rescuetime as a data source?If so, go to https://www.rescuetime.com/anapi/manage to create an API key for us to read your rescuetime data",
+                    "attachments": [
+                    {
+                        "text": "Ready to input the key",
+                        "fallback": "You are unable to choose a rescuetime api",
+                        "callback_id": "rescuetime",
+                        "color": "#3AA3E3",
+                        "attachment_type": "default",
+                        "actions": [
+                        {
+                            "name": "rescuetime_api_key_yes",
+                            "text": "Yes",
+                            "type": "button",
+                            "value": "Yes"
+                        },
+                        {
+                            "name": "rescuetime_api_key_no",
+                            "text": "No",
+                            "type": "button",
+                            "value": "No"
+                        },
+                        ]
+                    }
+                    ],
+                };
+                bot.postMessage(slackID,"",requestData);
+            }else{
+                bot.postMessage(slackID,"Congratulations! You successfully add rescuetime.",{as_user: true});
+            }
+        }
+    });
+}
+
 module.exports = {
-    bot: bot
+    bot: bot,
+    requestResuetime: requestResuetime,
 }
