@@ -9,6 +9,7 @@ var _ = require('underscore')
 var googleAuth = require('google-auth-library');
 var CronJob = require('cron').CronJob;
 var config = require('./config');
+var days;
 
 const envKey = process.env.NUDGE_BOT_TOKEN;
 mongoose.Promise = global.Promise;
@@ -26,6 +27,13 @@ var oauth2Client = new google.auth.OAuth2(
 );
 
 const startCronJob = function(time, is_print=false){
+    if(is_print){
+        days += 1;
+        if(days%config.frequency){
+            is_print = false;
+            console.log("day config.frequency not print",days, config.frequency);
+        }
+    }
     var job = new CronJob({
         cronTime: '00 00 '+time+' * * *',
         onTick: function() {
@@ -38,6 +46,7 @@ const startCronJob = function(time, is_print=false){
 
 bot.on('start', function() {
     console.log('bot start!');
+    days = 0;
     for (var i = 0; i <= 23; i++) {
         var is_print=false;
         if(i==7)
@@ -126,6 +135,10 @@ function oneTimeCheck(user, is_print=false){
 }
 
 function dailyCheck(is_print=false){
+    if(config.ignore.includes(config.days[(new Date()).getDay()])){
+        console.log("Ignore!!!");
+        return;
+    }
     User.find({}, function(err, users) {
         if(err){
             console.log(err);
