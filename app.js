@@ -78,8 +78,14 @@ app.post('/apikey', function(req, res){
                 })
             .catch((err) => {
                 console.log('error in new rescuetime api');
-                res.status(400).json({error:err});
-                bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again by saying rescuetime to me!", {as_user:true});
+                console.log(err.errmsg);
+                if(err.errmsg.includes("duplicate key")){
+                    res.status(400).json({error:err});
+                    bot.postMessage(slackID, "Ooops!!! You have already submitted your rescuetime api key!", {as_user:true});
+                }else{
+                    res.status(400).json({error:err});
+                    bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again by saying rescuetime to me!", {as_user:true});
+                }
             });
         }).catch(function(error) {
             console.log("error");
@@ -88,11 +94,31 @@ app.post('/apikey', function(req, res){
         res.send();
     }else if(data.type == "interactive_message"){
         if(data.actions[0].name == "rescuetime_api_key_yes"){
-            var requestData = {
-                "trigger_id": data.trigger_id,
-                "dialog": {
-                    "callback_id": "rescuetime_callback",
-                    "title": "Request a Ride",
+            Apikey.findOne({slackID: slackID}).exec(function(err, apikey){
+                if(err){
+                    console.log(err)
+                } else {
+                    console.log(apikey);
+                    if(!apikey){
+                        startDialog(data);
+                    } else {
+                        res.send("Ooops!!! You have already submitted your rescuetime api key!");
+                    }
+                }
+            });
+        }else if(data.actions[0].name == "rescuetime_api_key_no"){
+            //bot.postMessage(slackID, "So sorry that you said no to add rescuetime. Maybe you would change your mind later.", {as_user:true});
+            res.send("So sorry that you said no to add rescuetime. Maybe you would change your mind later. When you are ready, try agin by saying rescuetime to me and input the right key.");
+        }
+    };
+})
+
+function startDialog(data){
+    var requestData = {
+        "trigger_id": data.trigger_id,
+        "dialog": {
+            "callback_id": "rescuetime_callback",
+            "title": "Request a Ride",
                     "submit_label": "Request",
                     "notify_on_cancel": true,
                     "state": "Limo",
@@ -105,25 +131,24 @@ app.post('/apikey', function(req, res){
                     },
                     ],
                 },
-            };
-            var requestJson = {
-                url: "https://api.slack.com/api/dialog.open",
-                method: "POST",
-                json: true,
-                headers: {
-                    "content-type": "application/json",
-                    "Authorization": "Bearer "+process.env.NUDGE_BOT_TOKEN,
-                },
-                body: requestData,
-            };
-            console.log(requestJson);
-            request(requestJson);
-        }else if(data.actions[0].name == "rescuetime_api_key_no"){
-            bot.postMessage(slackID, "So sorry that you said no to add rescuetime. Maybe you would change your mind later.", {as_user:true});
-        }
     };
-    
-})
+    var requestJson = {
+        url: "https://api.slack.com/api/dialog.open",
+        method: "POST",
+        json: true,
+        headers: {
+            "content-type": "application/json",
+            "Authorization": "Bearer "+process.env.NUDGE_BOT_TOKEN,
+        },
+        body: requestData,
+    };
+    console.log("requestJson", requestJson);
+    request(requestJson, function (error, response, body) {
+        console.log('error:', error); // Print the error if one occurred
+        console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+        console.log('body:', body); // Print the HTML for the Google homepage.
+    });
+}
 
 
 app.get('/connect/callback', function(req, res) {
@@ -166,6 +191,7 @@ app.get('/connect/callback', function(req, res) {
                         setTimeout(requestResuetime(slackID), 1000);
                     })
                     .catch((err) => {
+                        console.log(err.errmsg);
                         console.log('error in newuser save of connectcallback');
                         res.status(400).json({error:err});
                         bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again by saying Hi to me!", {as_user:true});
