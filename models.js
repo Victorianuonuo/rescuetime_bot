@@ -35,10 +35,29 @@ var apikeySchema = new Schema({
     }
 });
 
+var configUserSchema = new Schema({
+    slackID: {
+        type: String,
+        required: true,
+        index: true,
+        unique: true
+    },
+    configJson: {
+        type: String,
+        required: true
+    },
+    auth_id: {
+        type: String,
+        required: true
+    }
+});
+
 
 var User = mongoose.model('User', userSchema);
 var Apikey = mongoose.model('Apikey', apikeySchema);
+var ConfigUser = mongoose.model('ConfigUser', configUserSchema);
 module.exports = {
     User: User,
-    Apikey: Apikey
+    Apikey: Apikey,
+    ConfigUser: ConfigUser
  };

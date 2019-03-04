@@ -1,6 +1,6 @@
 var logger = require('morgan');
 const {google} = require('googleapis');
-var {User, Apikey} = require('./models')
+var {User, Apikey, ConfigUser} = require('./models')
 var mongoose = require('mongoose');
 var _ = require('underscore');
 var models = require('./models');
@@ -54,13 +54,77 @@ app.get('/oauth', function(req, res){
     res.redirect(url);
 })
 
-app.post('/apikey', function(req, res){
+isObject = function(a) {
+    return (!!a) && (a.constructor === Object);
+};
+
+function verifyJson(jsonfile){
+    var keys = {
+        "incoming":["calendar_event"],
+        "outgoing":["email"],
+        "frequency":["daily", "weekly"],
+        "num_of_event":["0", "1"],
+        "ignore":['sunday','monday','tuesday','wednesday','thursday','friday','saturday']
+    };
+    var errors;
+    console.log(jsonfile);
+
+    try {
+        jsonfile = JSON.parse(jsonfile);
+        console.log("jsonfile", jsonfile);
+        if(isObject(jsonfile)){
+            for (var key in keys){
+                if(errors){
+                    break;
+                }
+                if(key in jsonfile){
+                    if (typeof jsonfile[key] === 'string' || jsonfile[key] instanceof String){
+                        if(!keys[key].includes(jsonfile[key])){
+                            errors = jsonfile[key]+" not defined!!! options: "+keys[key];
+                            break;
+                            console.log(errors);
+                    }
+                    }else if(!Array.isArray(jsonfile[key])){
+                        for(var subkey in jsonfile[key]){
+                            console.log(jsonfile[key]+' '+subkey);
+                            if(!keys[key].includes(subkey)){
+                                errors = subkey+" not defined!!! options: "+keys[key];
+                                break;
+                            }
+                        }
+                    }else{
+                        for(var subkey in jsonfile[key]){
+                            console.log(jsonfile[key]+' '+jsonfile[key][subkey]);
+                            if(!keys[key].includes(jsonfile[key][subkey])){
+                                errors = jsonfile[key][subkey]+" not defined!!! options: "+keys[key];
+                                break;
+                            }
+                        }
+                    }
+                }else{
+                    errors = key+" not in jsonfile!!!";
+                    break;
+                }
+            }
+        }else{
+            errors = "cannot parse as Json";
+        }
+    } catch (e) {
+        console.log("not JSON");
+        console.log(e);
+        errors = "not JSON";
+    }
+
+    return {"errors": errors};
+}
+
+app.post('/apikey', async function(req, res){
     var data = JSON.parse(req.body.payload);
     if(!slackID){
         slackID = data.user.id;
     }
-    console.log(data);
-    if(data.type=="dialog_submission"){
+    console.log("post apikey:", data);
+    if(data.type=="dialog_submission" && data.callback_id=="rescuetime_callback"){
         var token = data.submission.apikey;
         console.log("token: ", token);
         var newApikey = new Apikey({
@@ -87,11 +151,74 @@ app.post('/apikey', function(req, res){
                     bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again by saying rescuetime to me!", {as_user:true});
                 }
             });
+            res.send();
         }).catch(function(error) {
             console.log("error");
-            bot.postMessage(slackID, "Ooops!!! Invalid key. Please try agin by saying rescuetime to me and input the right key", {as_user:true});
+            res.status(200).json({"errors":[{"name": "apikey", "error": "Ooops!!! Invalid key. Please try agin by saying rescuetime to me and input the right key"}]});
+            console.log("e23r");
         });
-        res.send();
+    }else if(data.type=="dialog_submission" && data.callback_id=="config_callback"){
+        var submission = data.submission;
+        console.log("submission: ", submission);
+        var configkey = process.env.configkey || 233;
+        if(submission.key!=configkey){
+            res.status(200).json({"errors":[{"name": "key", "error": "Ooops!!! Invalid key. Please input the right key to change the config file"}]});
+            return;
+        }
+        var is_user = submission.slackID=='all';
+        if(!is_user){
+            console.log("slackID,", submission.slackID);
+            var users = await bot.getUsers();
+            var user_ids = Array.from(users.members, usr=>usr.id);
+            console.log(user_ids);
+            if(user_ids.includes(submission.slackID)){
+                console.log("slackID in,", submission.slackID);
+                is_user = true;
+                //res.status(200).json({"errors":[{"name": "slackID", "error": "Ooops!!! Invalid slackID. Please input the right slackID or all for all users to change the config file"}]});
+                //return;
+            }
+            console.log("is_user, ", is_user);
+            if(!is_user){
+                res.status(200).json({"errors":[{"name": "slackID", "error": "Ooops!!! Invalid slackID. Please input the right slackID or all for all users to change the config file"}]});
+                return;
+            }
+        }
+        var verification = verifyJson(submission.configfile);
+        if(verification.errors){
+            res.status(200).json({"errors":[{"name": "configfile", "error": verification.errors}]});
+            return;
+        }
+
+        ConfigUser.findOne({slackID: submission.slackID}).exec(function(err, user){
+                if(err){
+                    console.log(err)
+                } else {
+                    console.log(user);
+                    if(user){
+                        console.log("ConfigUser slackID"+ user.slackID+" exist, set by ", user.auth_id);
+                        var newConfigFile = user;
+                        newConfigFile.configJson = submission.configfile;
+                        newConfigFile.auth_id = submission.slackID;
+                    }else{
+                        var newConfigFile = new ConfigUser({
+                            slackID: submission.slackID,
+                            configJson: submission.configfile,
+                            auth_id: slackID
+                        });
+                    }
+                    newConfigFile.save()
+                    .then( () => {
+                        bot.postMessage(slackID, "Congratulations! You successfully change configfile for "+submission.slackID, {as_user:true});
+                        })
+                    .catch((err) => {
+                        console.log('error in new newConfigFile api');
+                        console.log(err.errmsg);
+                        bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again by type slack command config", {as_user:true});
+                    });
+                    res.send();
+                }
+        });
+
     }else if(data.type == "interactive_message"){
         if(data.actions[0].name == "rescuetime_api_key_yes"){
             Apikey.findOne({slackID: slackID}).exec(function(err, apikey){
@@ -100,7 +227,25 @@ app.post('/apikey', function(req, res){
                 } else {
                     console.log(apikey);
                     if(!apikey){
-                        startDialog(data);
+                        var requestData = {
+                            "trigger_id": data.trigger_id,
+                            "dialog": {
+                                "callback_id": "rescuetime_callback",
+                                "title": "Request a rescuetime api",
+                                        "submit_label": "Request",
+                                        "notify_on_cancel": true,
+                                        "state": "Limo",
+                                        "elements": [
+                                        {
+                                            "label": "Your rescuetime API key",
+                                            "name": "apikey",
+                                            "type": "text",
+                                            "placeholder": "Your rescuetime API key"
+                                        },
+                                        ],
+                                    },
+                        };
+                        startDialog(requestData);
                     } else {
                         res.send("Ooops!!! You have already submitted your rescuetime api key!");
                     }
@@ -113,25 +258,7 @@ app.post('/apikey', function(req, res){
     };
 })
 
-function startDialog(data){
-    var requestData = {
-        "trigger_id": data.trigger_id,
-        "dialog": {
-            "callback_id": "rescuetime_callback",
-            "title": "Request a Ride",
-                    "submit_label": "Request",
-                    "notify_on_cancel": true,
-                    "state": "Limo",
-                    "elements": [
-                    {
-                        "label": "Your rescuetime API key",
-                        "name": "apikey",
-                        "type": "text",
-                        "placeholder": "Your rescuetime API key"
-                    },
-                    ],
-                },
-    };
+function startDialog(requestData){
     var requestJson = {
         url: "https://api.slack.com/api/dialog.open",
         method: "POST",
@@ -206,9 +333,43 @@ app.get('/', function(req, res) {
     res.send('Nudgebot is working! Path Hit: ' + req.url);
 });
 
-app.post('/command', function(req, res) {
-    res.send('Your ngrok tunnel is up and running!');
+app.post('/command/config', function(req, res) {
+    var data = req.body;
+    console.log(data);
+    var requestData = {
+        "trigger_id": data.trigger_id,
+        "dialog": {
+            "callback_id": "config_callback",
+            "title": "Upload a config file",
+            "submit_label": "Request",
+            "notify_on_cancel": true,
+            "state": "Limo",
+            "elements": [
+                {
+                    "label": "Key to authenticate your identity",
+                    "name": "key",
+                    "type": "text",
+                    "placeholder": "key to upload the config file"
+                },
+                {
+                    "label": "slack ID for one user or `all` for all users",
+                    "name": "slackID",
+                    "type": "text",
+                    "placeholder": "slack ID for one user or `all` for all users"
+                },
+                {
+                    "label": "Config file of Json format",
+                    "name": "configfile",
+                    "type": "textarea",
+                    "hint": `'incoming', 'outgoing', 'frequency', 'num_of_event', 'ignore'`
+                },
+            ],
+        },
+    };
+    startDialog(requestData);
+    res.send();
 });
+
 
 app.listen(process.env.PORT || 3000);
 

@@ -8,8 +8,8 @@ var slackID;
 var _ = require('underscore')
 var googleAuth = require('google-auth-library');
 var CronJob = require('cron').CronJob;
-var config = require('./config');
-var days;
+var Config = require('./config');
+var is_greet = false;
 
 const envKey = process.env.NUDGE_BOT_TOKEN;
 mongoose.Promise = global.Promise;
@@ -27,13 +27,6 @@ var oauth2Client = new google.auth.OAuth2(
 );
 
 const startCronJob = function(time, is_print=false){
-    if(is_print){
-        days += 1;
-        if(days%config.frequency){
-            is_print = false;
-            console.log("day config.frequency not print",days, config.frequency);
-        }
-    }
     var job = new CronJob({
         cronTime: '00 00 '+time+' * * *',
         onTick: function() {
@@ -46,7 +39,6 @@ const startCronJob = function(time, is_print=false){
 
 bot.on('start', function() {
     console.log('bot start!');
-    days = 0;
     for (var i = 0; i <= 23; i++) {
         var is_print=false;
         if(i==7)
@@ -60,7 +52,7 @@ bot.on('start', function() {
         user_ids = Array.from(users, usr=>usr.slackID);
         bot.getUsers().then(users=>
             users.members.forEach(function(user){
-                if(config.is_greet && !user_ids.includes(user.id) && !user.is_bot){
+                if(is_greet && !user_ids.includes(user.id) && !user.is_bot){
                     bot.postMessage(user.id, MESSAGE, {as_user:true}).then(() => authenticate(user.id));
                 }
             }
@@ -94,7 +86,7 @@ bot.on("message", message => {
                 } else {
                     console.log("message,", message);
                     bot.postMessage(message.user, MESSAGE, {as_user:true});
-                    if(message.text ){
+                    if(message.text){
                         if(message.text.toLowerCase().includes('calendar')){
                             oneTimeCheck(user, true);
                         }else if(message.text.toLowerCase().includes('rescuetime')){
@@ -105,7 +97,7 @@ bot.on("message", message => {
 
                 }
                 }
-            })
+            });
         }
         break;
     }
@@ -135,10 +127,6 @@ function oneTimeCheck(user, is_print=false){
 }
 
 function dailyCheck(is_print=false){
-    if(config.ignore.includes(config.days[(new Date()).getDay()])){
-        console.log("Ignore!!!");
-        return;
-    }
     User.find({}, function(err, users) {
         if(err){
             console.log(err);
@@ -166,12 +154,27 @@ function userAuthen(user, is_print=false){
         oauth2Client.setCredentials(user.token);
         //console.log(oauth2Client, user.email);
         user.save().then((user)=>{
-            listEvents(user, oauth2Client, is_print);
+            configThenList(user, oauth2Client, is_print);
         });
     });
 }
 
-function listEvents(user, auth, is_print=false) {
+function configThenList(user, auth, is_print=false){
+    Config(user, auth, is_print, listEvents);
+}
+
+function listEvents(user, auth, config, is_print=false) {
+    var today = (new Date()).getDay();
+    console.log(user, auth, config, is_print);
+    if(config.get_frequency()=='weekly' && today!=config.get_tickday()){
+        is_print = false;
+        console.log("today config.frequency not print",today, config.get_frequency());
+    }
+    if(config.get_ignore().includes(config.get_dayname()[today])){
+        is_print = false;
+        console.log("Ignore!!! today config.ignore", today, config.get_ignore());
+    }
+
     const calendar = google.calendar({version: 'v3', auth});
     var timeMin = new Date();
     timeMin.setHours(0,0,0,0);
@@ -190,16 +193,16 @@ function listEvents(user, auth, is_print=false) {
     }, (err, res) => {
         if (err) return console.log('The API returned an error: ' + err);
         const events = res.data.items;
-        //console.log(events);
+        console.log(events);
         if (events.length) {
             console.log('The number of events: '+ events.length, user.email);
             if(is_print){
-                bot.postMessage(user.slackID, 'Fantastic job! You made plans today',{as_user:true});
+                bot.postMessage(user.slackID, config.num_of_event(events.length),{as_user:true});
             }
         } else {
             console.log('No upcoming events found.', user.email);
             if(is_print){
-                bot.postMessage(user.slackID, 'You are slacking off. No plans made today',{as_user:true});
+                bot.postMessage(user.slackID, config.num_of_event(events.length),{as_user:true});
             }
         }
     });
