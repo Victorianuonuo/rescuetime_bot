@@ -283,4 +283,5 @@ function requestResuetime(slackID){
 module.exports = {
     bot: bot,
     requestResuetime: requestResuetime,
+    authenResuetime: authenResuetime
 }

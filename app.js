@@ -8,7 +8,7 @@ var fs = require('fs');
 var slackID;
 var url;
 var request = require('request');
-var {bot, requestResuetime} = require('./bot');
+var {bot, requestResuetime, authenResuetime} = require('./bot');
 var axios = require('axios');
 var passport = require('passport');
 var RescueTimeStrategy = require('passport-rescuetime').Strategy;
@@ -366,7 +366,7 @@ app.get('/connect/callback', function(req, res) {
                     .then( () => {
                         res.status(200).send("Your account was successfuly authenticated");
                         bot.postMessage(slackID, "Congratulations! You are successfully connected to google calendar. Reminders for every day's events will come in at 7 am.", {as_user:true});
-                        setTimeout(requestResuetime(slackID), 1000);
+                        setTimeout(authenResuetime(slackID), 1000);
                     })
                     .catch((err) => {
                         console.log(err.errmsg);
