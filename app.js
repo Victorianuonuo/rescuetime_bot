@@ -12,6 +12,7 @@ var {bot, requestResuetime} = require('./bot');
 var axios = require('axios');
 var passport = require('passport');
 var RescueTimeStrategy = require('passport-rescuetime').Strategy;
+app.use(passport.initialize());
 
 passport.use(new RescueTimeStrategy({
     clientID: process.env.RESCUETIME_ID,
