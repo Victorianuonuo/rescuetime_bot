@@ -1,6 +1,6 @@
 {
     "incoming":"calendar_event",
-    "outgoing":"email",
+    "outgoing":"slack",
     "frequency":"daily",
     "num_of_event":{
         "0":"You are slacking off. No plans made today.",

@@ -3,7 +3,6 @@ const {google} = require('googleapis');
 var {User, Apikey, ConfigUser} = require('./models')
 var mongoose = require('mongoose');
 var _ = require('underscore');
-var models = require('./models');
 var googleAuth = require('google-auth-library');
 var fs = require('fs');
 var slackID;
@@ -11,6 +10,43 @@ var url;
 var request = require('request');
 var {bot, requestResuetime} = require('./bot');
 var axios = require('axios');
+var passport = require('passport');
+var RescueTimeStrategy = require('passport-rescuetime').Strategy;
+
+passport.use(new RescueTimeStrategy({
+    clientID: process.env.RESCUETIME_ID,
+    clientSecret: process.env.RESCUETIME_SECRET,
+    callbackURL: process.env.DOMAIN+"/apikey/rescuetime/callback"
+  },
+  function(accessToken, refreshToken, profile, done) {
+    console.log("RescueTimeStrategy connect through button, accessToken, refreshToken, profile", accessToken, refreshToken, profile);
+    Apikey.findOne({slackID: slackID}).exec(function(err, apikey){
+        if(err){
+            console.log(err);
+            done(err, apikey);
+        } else {
+            console.log("apikey, ", apikey);
+            if(apikey){
+                var newApikey = apikey;
+                newApikey.rescuetime_key = accessToken;
+            }else{
+                var newApikey = new Apikey({
+                    slackID: slackID,
+                    rescuetime_key: accessToken,
+                });
+            }
+            console.log("newApikey, ", newApikey);
+            newApikey.save()
+            .then( () => {
+                done(err, newApikey);
+            })
+            .catch((err) => {
+                done(err, newApikey);
+            });
+        }
+    });
+  }
+));
 
 var https = require("https");
 setInterval(function() {
@@ -54,6 +90,20 @@ app.get('/oauth', function(req, res){
     res.redirect(url);
 })
 
+app.get('/apikey/rescuetime/oauth', function(req, res, next) {
+    slackID = req.query.auth_id;
+    passport.authenticate('rescuetime')(req, res, next);
+});
+
+app.get('/apikey/rescuetime/callback',
+  passport.authenticate('rescuetime', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    console.log("Successful rescuetime button connection.");
+    bot.postMessage(slackID, "Congratulations! You successfully add rescuetime.", {as_user:true});
+    res.status(200).send("Your account was successfully authenticated");
+  });
+
 isObject = function(a) {
     return (!!a) && (a.constructor === Object);
 };
@@ -61,7 +111,7 @@ isObject = function(a) {
 function verifyJson(jsonfile){
     var keys = {
         "incoming":["calendar_event"],
-        "outgoing":["email"],
+        "outgoing":["slack"],
         "frequency":["daily", "weekly"],
         "num_of_event":["0", "1"],
         "ignore":['sunday','monday','tuesday','wednesday','thursday','friday','saturday']
@@ -191,7 +241,7 @@ app.post('/apikey', async function(req, res){
 
         ConfigUser.findOne({slackID: submission.slackID}).exec(function(err, user){
                 if(err){
-                    console.log(err)
+                    console.log(err);
                 } else {
                     console.log(user);
                     if(user){
@@ -223,7 +273,7 @@ app.post('/apikey', async function(req, res){
         if(data.actions[0].name == "rescuetime_api_key_yes"){
             Apikey.findOne({slackID: slackID}).exec(function(err, apikey){
                 if(err){
-                    console.log(err)
+                    console.log(err);
                 } else {
                     console.log(apikey);
                     if(!apikey){
@@ -288,7 +338,7 @@ app.get('/connect/callback', function(req, res) {
     console.log("this is oauth", oauth2Client);
     oauth2Client.getToken(code, function (err, tokens) {
         if(err) {
-            console.log(err)
+            console.log(err);
         } else {
             //set credentials. not entirely sure what this does but necessary for google plus
             //when a person gives access to their google calendar, we also make a request to google plus
@@ -299,7 +349,7 @@ app.get('/connect/callback', function(req, res) {
             var plus = google.plus('v1');
             plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, person){
                 if(err){
-                    console.log(err)
+                    console.log(err);
                 } else {
                     //when a person
                     console.log("this is googleplus person object", person);
@@ -361,7 +411,20 @@ app.post('/command/config', function(req, res) {
                     "label": "Config file of Json format",
                     "name": "configfile",
                     "type": "textarea",
-                    "hint": `'incoming', 'outgoing', 'frequency', 'num_of_event', 'ignore'`
+                    "hint": `'incoming', 'outgoing', 'frequency', 'num_of_event', 'ignore'`,
+                    "value": `{
+                        "incoming":"calendar_event",
+                        "outgoing":"slack",
+                        "frequency":"daily",
+                        "num_of_event":{
+                            "0":"You are slacking off. No plans made today.",
+                            "1":"Fantastic job! You made plans today."
+                        },
+                        "ignore":[
+                            "saturday",
+                            "sunday"
+                        ]
+                    }`
                 },
             ],
         },

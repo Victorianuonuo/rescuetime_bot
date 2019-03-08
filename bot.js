@@ -1,7 +1,6 @@
 var SlackBot = require('slackbots');
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); // only when test bot.js
-var models = require('./models');
 const {google} = require('googleapis');
 var {User, Apikey} = require('./models');
 var slackID;
@@ -90,7 +89,8 @@ bot.on("message", message => {
                         if(message.text.toLowerCase().includes('calendar')){
                             oneTimeCheck(user, true);
                         }else if(message.text.toLowerCase().includes('rescuetime')){
-                            requestResuetime(slackID);
+                            authenResuetime(slackID);
+                            //requestResuetime(slackID);
                         }
                         
                     }
@@ -203,6 +203,36 @@ function listEvents(user, auth, config, is_print=false) {
             console.log('No upcoming events found.', user.email);
             if(is_print){
                 bot.postMessage(user.slackID, config.num_of_event(events.length),{as_user:true});
+            }
+        }
+    });
+}
+
+function authenResuetime(slackID){
+    console.log("enter authenResuetime");
+    Apikey.findOne({slackID: slackID}).exec(function(err, user){
+        if(err){
+            console.log(err)
+        } else {
+            console.log(user);
+            if(!user){
+                bot.postMessage(slackID, 'Please click the following button to add rescuetime as a data source.' , {
+                    as_user:true,
+                    "attachments": [
+                        {
+                            "fallback": "activate",
+                            "actions": [
+                                {
+                                    "type": "button",
+                                    "text": "connect",
+                                    "url": process.env.DOMAIN + '/apikey/rescuetime/oauth?auth_id='+slackID
+                                }
+                            ]
+                        }
+                    ]
+                });
+            }else{
+                bot.postMessage(slackID,"Congratulations! You successfully add rescuetime.",{as_user: true});
             }
         }
     });
