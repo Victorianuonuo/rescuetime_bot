@@ -12,7 +12,49 @@ var {bot, requestResuetime} = require('./bot');
 var axios = require('axios');
 var passport = require('passport');
 var RescueTimeStrategy = require('passport-rescuetime').Strategy;
+
+var https = require("https");
+setInterval(function() {
+    https.get(process.env.DOMAIN);
+    console.log("keepwake");
+}, 300000); // every 5 minutes (300000)
+//This is for the wake process, mongthly quoto limited
+
+
+mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true });
+mongoose.Promise = global.Promise;
+var express = require('express');
+require('./bot')
+var app = express();
+var bodyParser = require('body-parser');
+app.use(logger('dev'));
+app.use(bodyParser.urlencoded({extended: false}));
+app.use(bodyParser.json());
 app.use(passport.initialize());
+var CLIENT_ID = process.env.CLIENT_ID;
+var CLIENT_SECRET = process.env.CLIENT_SECRET;
+const PORT=3000;
+app.get('/oauth', function(req, res){
+    oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.DOMAIN + '/connect/callback'
+    )
+    url = oauth2Client.generateAuthUrl({
+        access_type: 'offline',
+        prompt: 'consent',
+        scope: [
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'email',
+            'https://www.googleapis.com/auth/calendar.readonly'
+        ],
+        state: encodeURIComponent(JSON.stringify({
+            auth_id: req.query.auth_id
+        }))
+    });
+    slackID = req.query.auth_id;
+    res.redirect(url);
+})
 
 passport.use(new RescueTimeStrategy({
     clientID: process.env.RESCUETIME_ID,
@@ -48,48 +90,6 @@ passport.use(new RescueTimeStrategy({
     });
   }
 ));
-
-var https = require("https");
-setInterval(function() {
-    https.get(process.env.DOMAIN);
-    console.log("keepwake");
-}, 300000); // every 5 minutes (300000)
-//This is for the wake process, mongthly quoto limited
-
-
-mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true });
-mongoose.Promise = global.Promise;
-var express = require('express');
-require('./bot')
-var app = express();
-var bodyParser = require('body-parser');
-app.use(logger('dev'));
-app.use(bodyParser.urlencoded({extended: false}));
-app.use(bodyParser.json());
-var CLIENT_ID = process.env.CLIENT_ID;
-var CLIENT_SECRET = process.env.CLIENT_SECRET;
-const PORT=3000;
-app.get('/oauth', function(req, res){
-    oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        process.env.DOMAIN + '/connect/callback'
-    )
-    url = oauth2Client.generateAuthUrl({
-        access_type: 'offline',
-        prompt: 'consent',
-        scope: [
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'email',
-            'https://www.googleapis.com/auth/calendar.readonly'
-        ],
-        state: encodeURIComponent(JSON.stringify({
-            auth_id: req.query.auth_id
-        }))
-    });
-    slackID = req.query.auth_id;
-    res.redirect(url);
-})
 
 app.get('/apikey/rescuetime/oauth', function(req, res, next) {
     slackID = req.query.auth_id;
