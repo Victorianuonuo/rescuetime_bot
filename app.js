@@ -31,7 +31,6 @@ app.use(logger('dev'));
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(bodyParser.json());
 app.use(passport.initialize());
-app.use(passport.session());
 var CLIENT_ID = process.env.CLIENT_ID;
 var CLIENT_SECRET = process.env.CLIENT_SECRET;
 const PORT=3000;
@@ -92,26 +91,13 @@ passport.use(new RescueTimeStrategy({
   }
 ));
 
-passport.serializeUser(function(user, done) {
-  // placeholder for custom user serialization
-  // null is for errors
-  done(null, user);
-});
-
-passport.deserializeUser(function(user, done) {
-  // placeholder for custom user deserialization.
-  // maybe you are going to get the user from mongo by id?
-  // null is for errors
-  done(null, user);
-});
-
 app.get('/apikey/rescuetime/oauth', function(req, res, next) {
     slackID = req.query.auth_id;
     passport.authenticate('rescuetime')(req, res, next);
 });
 
 app.get('/apikey/rescuetime/callback',
-  passport.authenticate('rescuetime', { failureRedirect: '/login' }),
+  passport.authenticate('rescuetime', { failureRedirect: '/apikey/rescuetime/callback', session: false }),
   function(req, res) {
     // Successful authentication, redirect home.
     console.log("Successful rescuetime button connection.");
