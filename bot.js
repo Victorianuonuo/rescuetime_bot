@@ -29,11 +29,95 @@ const startCronJob = function(time, is_print=false){
     var job = new CronJob({
         cronTime: '00 00 '+time+' * * *',
         onTick: function() {
-            console.log('tick!');
+            console.log('startCronJob tick!');
             dailyCheck(is_print);
         }
     });
     job.start();
+}
+
+const startWeeklyPlanner = function(){
+    var job = new CronJob({
+        cronTime: '00 30 07 * * 1',
+        onTick: function() {
+            console.log('startWeeklyPlanner tick!');
+            weeklyPlanner();
+        }
+    });
+    job.start();
+}
+
+const startDailyReminder = function(){
+    var job = new CronJob({
+        cronTime: '00 30 07 * * 0,2-6',
+        onTick: function() {
+            console.log('startDailyReminder tick!');
+            dailyReminder();
+        }
+    });
+    job.start();
+}
+
+function weeklyPlanner(){
+    console.log("enter weeklyPlanner");
+    Apikey.find({}, function(err, users) {
+        if(err){
+            console.log(err);
+        }else{
+            users.forEach(function(user) {
+                console.log("weekly plan for ", user);
+                weeklyReport(user);
+                newPlan(user);
+            });
+        }
+    });
+}
+
+function dailyReminder(){
+    var week = getMonday(new Date()).toDateString();
+    weeklyPlan.find({week:week}).exec(function(err, users){
+        if(err){
+            console.log(err);
+        }else{
+            users.forEach(function(user) {
+                console.log("daily reminder for ", user);
+                dailyReport(user);
+            });
+        }
+    });
+}
+
+function weeklyReport(user){
+
+}
+
+function dailyReport(user){
+
+}
+
+function newPlan(user){
+    var requestData = {
+        as_user: true,
+        "text": "Click here to make a plan for this week!!!",
+        "attachments": [
+            {
+                "text": "",
+                "fallback": "You are unable to propose new plan",
+                "callback_id": "newplan",
+                "color": "#3AA3E3",
+                "attachment_type": "default",
+                "actions": [
+                    {
+                        "name": "new_plan_button",
+                        "text": "Plan",
+                        "type": "button",
+                        "value": "yes_plan"
+                    },
+                ]
+            }
+        ],
+    };
+    bot.postMessage(user.slackID,"",requestData);
 }
 
 bot.on('start', function() {
@@ -44,6 +128,7 @@ bot.on('start', function() {
           is_print=true;
         startCronJob(("00" + i).slice(-2),is_print);
     }
+    weeklyPlanner();
     //dailyCheck();
     //bot.postMessageToUser('so395', 'Hi, This is nudge bot!',{as_user:true}); 
     const MESSAGE = "Hi! This is nudge bot. We will inform you whether you have any event during the day at 7 am. Start with giving us permission to read your Google Calendar, and we would not edit or delete your calendar.";
@@ -280,8 +365,17 @@ function requestResuetime(slackID){
     });
 }
 
+function getMonday(d) {
+  d = new Date(d);
+  //d.setHours(0,0,0,0);
+  var day = d.getDay(),
+      diff = d.getDate() - day + (day == 0 ? -6:1); // adjust when day is sunday
+  return new Date(d.setDate(diff));
+}
+
 module.exports = {
     bot: bot,
     requestResuetime: requestResuetime,
-    authenResuetime: authenResuetime
+    authenResuetime: authenResuetime,
+    getMonday: getMonday,
 }

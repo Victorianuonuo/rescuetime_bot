@@ -1,6 +1,6 @@
 var logger = require('morgan');
 const {google} = require('googleapis');
-var {User, Apikey, ConfigUser} = require('./models')
+var {User, Apikey, ConfigUser, weeklyPlan} = require('./models')
 var mongoose = require('mongoose');
 var _ = require('underscore');
 var googleAuth = require('google-auth-library');
@@ -8,7 +8,7 @@ var fs = require('fs');
 var slackID;
 var url;
 var request = require('request');
-var {bot, requestResuetime, authenResuetime} = require('./bot');
+var {bot, requestResuetime, authenResuetime, getMonday} = require('./bot');
 var axios = require('axios');
 var passport = require('passport');
 var RescueTimeStrategy = require('passport-rescuetime').Strategy;
@@ -59,7 +59,8 @@ app.get('/oauth', function(req, res){
 passport.use(new RescueTimeStrategy({
     clientID: process.env.RESCUETIME_ID,
     clientSecret: process.env.RESCUETIME_SECRET,
-    callbackURL: process.env.DOMAIN+"/apikey/rescuetime/callback"
+    callbackURL: process.env.DOMAIN+"/apikey/rescuetime/callback",
+    scope: ['time_data', 'category_data', 'productivity_data', 'alert_data', 'highlight_data', 'focustime_data']
   },
   function(accessToken, refreshToken, profile, done) {
     console.log("RescueTimeStrategy connect through button, accessToken, refreshToken, profile", accessToken, refreshToken, profile);
@@ -208,39 +209,40 @@ app.post('/apikey', async function(req, res){
             res.status(200).json({"errors":[{"name": "apikey", "error": "Ooops!!! Invalid key. Please try agin by saying rescuetime to me and input the right key"}]});
             console.log("e23r");
         });
-    }else if(data.type=="dialog_submission" && data.callback_id=="config_callback"){
-        var submission = data.submission;
-        console.log("submission: ", submission);
-        var configkey = process.env.configkey || 233;
-        if(submission.key!=configkey){
-            res.status(200).json({"errors":[{"name": "key", "error": "Ooops!!! Invalid key. Please input the right key to change the config file"}]});
-            return;
-        }
-        var is_user = submission.slackID=='all';
-        if(!is_user){
-            console.log("slackID,", submission.slackID);
-            var users = await bot.getUsers();
-            var user_ids = Array.from(users.members, usr=>usr.id);
-            console.log(user_ids);
-            if(user_ids.includes(submission.slackID)){
-                console.log("slackID in,", submission.slackID);
-                is_user = true;
-                //res.status(200).json({"errors":[{"name": "slackID", "error": "Ooops!!! Invalid slackID. Please input the right slackID or all for all users to change the config file"}]});
-                //return;
-            }
-            console.log("is_user, ", is_user);
-            if(!is_user){
-                res.status(200).json({"errors":[{"name": "slackID", "error": "Ooops!!! Invalid slackID. Please input the right slackID or all for all users to change the config file"}]});
+    }else if(data.type=="dialog_submission"){
+        if(data.callback_id=="config_callback"){
+            var submission = data.submission;
+            console.log("submission: ", submission);
+            var configkey = process.env.configkey || 233;
+            if(submission.key!=configkey){
+                res.status(200).json({"errors":[{"name": "key", "error": "Ooops!!! Invalid key. Please input the right key to change the config file"}]});
                 return;
             }
-        }
-        var verification = verifyJson(submission.configfile);
-        if(verification.errors){
-            res.status(200).json({"errors":[{"name": "configfile", "error": verification.errors}]});
-            return;
-        }
+            var is_user = submission.slackID=='all';
+            if(!is_user){
+                console.log("slackID,", submission.slackID);
+                var users = await bot.getUsers();
+                var user_ids = Array.from(users.members, usr=>usr.id);
+                console.log(user_ids);
+                if(user_ids.includes(submission.slackID)){
+                    console.log("slackID in,", submission.slackID);
+                    is_user = true;
+                    //res.status(200).json({"errors":[{"name": "slackID", "error": "Ooops!!! Invalid slackID. Please input the right slackID or all for all users to change the config file"}]});
+                    //return;
+                }
+                console.log("is_user, ", is_user);
+                if(!is_user){
+                    res.status(200).json({"errors":[{"name": "slackID", "error": "Ooops!!! Invalid slackID. Please input the right slackID or all for all users to change the config file"}]});
+                    return;
+                }
+            }
+            var verification = verifyJson(submission.configfile);
+            if(verification.errors){
+                res.status(200).json({"errors":[{"name": "configfile", "error": verification.errors}]});
+                return;
+            }
 
-        ConfigUser.findOne({slackID: submission.slackID}).exec(function(err, user){
+            ConfigUser.findOne({slackID: submission.slackID}).exec(function(err, user){
                 if(err){
                     console.log(err);
                 } else {
@@ -268,8 +270,32 @@ app.post('/apikey', async function(req, res){
                     });
                     res.send();
                 }
-        });
-
+            });
+        }else if(data.callback_id=="newplan_callback"){
+            var submission = data.submission;
+            console.log("submission: ", submission);
+            var week = getMonday(new Date()).toDateString();
+            var newWeeklyPlan = new weeklyPlan({
+                slackID: slackID,
+                week: week,
+                plans: submission
+            });
+            console.log(newWeeklyPlan);
+            newWeeklyPlan.save()
+                .then( () => {
+                    bot.postMessage(slackID, "Congratulations! You successfully set weekly plan", {as_user:true});
+                    })
+                .catch((err) => {
+                    console.log('error in new newWeeklyPlan api');
+                    console.log(err.errmsg);
+                    if(err.errmsg.includes("duplicate key error")){
+                        bot.postMessage(slackID, "Ooops!!! You have already set before!", {as_user:true});
+                    }else{
+                        bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again saying weeklyplan", {as_user:true});
+                    }
+                });
+            res.send();
+        }
     }else if(data.type == "interactive_message"){
         if(data.actions[0].name == "rescuetime_api_key_yes"){
             Apikey.findOne({slackID: slackID}).exec(function(err, apikey){
@@ -298,13 +324,80 @@ app.post('/apikey', async function(req, res){
                         };
                         startDialog(requestData);
                     } else {
-                        res.send("Ooops!!! You have already submitted your rescuetime api key!");
+                        bot.postMessage(slackID, "Ooops!!! You have already submitted your rescuetime api key!", {as_user:true});
+                        //res.send("Ooops!!! You have already submitted your rescuetime api key!");
                     }
                 }
             });
         }else if(data.actions[0].name == "rescuetime_api_key_no"){
-            //bot.postMessage(slackID, "So sorry that you said no to add rescuetime. Maybe you would change your mind later.", {as_user:true});
-            res.send("So sorry that you said no to add rescuetime. Maybe you would change your mind later. When you are ready, try agin by saying rescuetime to me and input the right key.");
+            bot.postMessage(slackID, "So sorry that you said no to add rescuetime. Maybe you would change your mind later.", {as_user:true});
+            //res.send("So sorry that you said no to add rescuetime. Maybe you would change your mind later. When you are ready, try agin by saying rescuetime to me and input the right key.");
+        }else if(data.actions[0].name == "new_plan_button"){
+            var week = getMonday(new Date()).toDateString();
+            weeklyPlan.findOne({slackID:slackID, week:week}).exec(function(err, user){
+                if(err){
+                    console.log(err);
+                } else {
+                    console.log("weeklyPlan", user);
+                    if(user){
+                        bot.postMessage(slackID, "Ooops! Seems that you have already set a plan for this week", {as_user:true});
+                    }else{
+                        var softwareOptions = [];
+                        var writingOptions = [];
+                        var learningOptions = [];
+                        var productivityOptions = [];
+                        for (var i = 30; i >= 0; i-=2) {
+                            softwareOptions.push({"label":i.toString(), "value":i.toString()});
+                        }
+                        for (var i = 20; i >= 0; i-=2) {
+                            writingOptions.push({"label":i.toString(), "value":i.toString()});
+                        }
+                        for (var i = 20; i >= 0; i-=2) {
+                            learningOptions.push({"label":i.toString(), "value":i.toString()});
+                        }
+                        for (var i = 90; i >= 50; i-=5) {
+                            productivityOptions.push({"label":i.toString(), "value":i.toString()});
+                        }
+                        var requestData = {
+                            "trigger_id": data.trigger_id,
+                            "dialog": {
+                                "callback_id": "newplan_callback",
+                                "title": "New Plan for this week!",
+                                "submit_label": "Request",
+                                "notify_on_cancel": true,
+                                "state": "Limo",
+                                "elements": [
+                                    {
+                                        "label": "Time spent on software development this week",
+                                        "type": "select",
+                                        "name": "software_development",
+                                        "options": softwareOptions
+                                    },
+                                    {
+                                        "label": "Time spent on writing this week",
+                                        "type": "select",
+                                        "name": "writing",
+                                        "options": writingOptions
+                                    },
+                                    {
+                                        "label": "Time spent on learning this week",
+                                        "type": "select",
+                                        "name": "learning",
+                                        "options": learningOptions
+                                    },
+                                    {
+                                        "label": "Productivity this week",
+                                        "type": "select",
+                                        "name": "productivity",
+                                        "options": productivityOptions
+                                    },
+                                ],
+                            },
+                        };
+                        startDialog(requestData);
+                    }
+                }
+            });
         }
     };
 })

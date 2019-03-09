@@ -35,6 +35,25 @@ var apikeySchema = new Schema({
     }
 });
 
+var weeklyPlanSchema = new Schema({
+    slackID: {
+        type: String,
+        required: true,
+        index: true
+    },
+    week: {
+        type: String,
+        required: true,
+        index: true
+    },
+    plans: {
+        type: Map,
+        of: String
+    }
+});
+weeklyPlanSchema.index({ slackID: 1, week: 1 }, { unique: true });
+
+
 var configUserSchema = new Schema({
     slackID: {
         type: String,
@@ -56,8 +75,10 @@ var configUserSchema = new Schema({
 var User = mongoose.model('User', userSchema);
 var Apikey = mongoose.model('Apikey', apikeySchema);
 var ConfigUser = mongoose.model('ConfigUser', configUserSchema);
+var weeklyPlan = mongoose.model('weeklyPlan', weeklyPlanSchema);
 module.exports = {
     User: User,
     Apikey: Apikey,
-    ConfigUser: ConfigUser
- };
+    ConfigUser: ConfigUser,
+    weeklyPlan: weeklyPlan,
+};
