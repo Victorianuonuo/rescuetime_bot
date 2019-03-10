@@ -53,7 +53,7 @@ const startDailyReminder = function(){
     job.start();
 }
 
-function newPlan(user){
+function newPlan(slackID){
     var requestData = {
         as_user: true,
         "text": "Click here to make a plan for this week!!!",
@@ -75,33 +75,37 @@ function newPlan(user){
             }
         ],
     };
-    bot.postMessage(user.slackID,"",requestData);
+    bot.postMessage(slackID,"",requestData);
 }
 
-function weeklyPlanner(){
+function weeklyPlanner(trigger=null){
     console.log("enter weeklyPlanner");
     Apikey.find({}, function(err, users) {
         if(err){
             console.log(err);
         }else{
             users.forEach(function(user) {
-                console.log("weekly plan for ", user);
-                weeklyReport(user.slackID, user.rescuetime_key);
-                setTimeout(function(){newPlan(user);}, 600);
+                if(!trigger || trigger==user.slackID){
+                    console.log("weekly plan for ", user);
+                    weeklyReport(user.slackID, user.rescuetime_key);
+                    setTimeout(function(){newPlan(user.slackID);}, 800);
+                }
             });
         }
     });
 }
 
-function dailyReminder(){
+function dailyReminder(trigger=null){
     var week = getMonday(new Date()).toDateString();
     WeeklyPlan.find({week:week}).exec(function(err, users){
         if(err){
             console.log(err);
         }else{
             users.forEach(function(user) {
-                console.log("daily reminder for ", user);
-                dailyReport(user.slackID, user.week, user.plans);
+                if(!trigger || trigger==user.slackID){
+                    console.log("daily reminder for ", user);
+                    dailyReport(user.slackID, user.week, user.plans);
+                }
             });
         }
     });
@@ -300,11 +304,11 @@ bot.on("message", message => {
                                 authenResuetime(slackID);
                                 //requestResuetime(slackID);
                             }else if(message.text.includes("weeklyPlanner")){
-                                weeklyPlanner();
+                                weeklyPlanner(slackID);
                                 //dailyReminder();
                             }else if(message.text.includes("dailyReminder")){
                                 //weeklyPlanner();
-                                dailyReminder();
+                                dailyReminder(slackID);
                             }
                         }
                     }
