@@ -75,10 +75,10 @@ var configUserSchema = new Schema({
 var User = mongoose.model('User', userSchema);
 var Apikey = mongoose.model('Apikey', apikeySchema);
 var ConfigUser = mongoose.model('ConfigUser', configUserSchema);
-var weeklyPlan = mongoose.model('weeklyPlan', weeklyPlanSchema);
+var WeeklyPlan = mongoose.model('WeeklyPlan', weeklyPlanSchema);
 module.exports = {
     User: User,
     Apikey: Apikey,
     ConfigUser: ConfigUser,
-    weeklyPlan: weeklyPlan,
+    WeeklyPlan: WeeklyPlan,
 };

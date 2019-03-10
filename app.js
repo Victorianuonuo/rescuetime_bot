@@ -1,6 +1,6 @@
 var logger = require('morgan');
 const {google} = require('googleapis');
-var {User, Apikey, ConfigUser, weeklyPlan} = require('./models')
+var {User, Apikey, ConfigUser, WeeklyPlan} = require('./models')
 var mongoose = require('mongoose');
 var _ = require('underscore');
 var googleAuth = require('google-auth-library');
@@ -275,7 +275,7 @@ app.post('/apikey', async function(req, res){
             var submission = data.submission;
             console.log("submission: ", submission);
             var week = getMonday(new Date()).toDateString();
-            var newWeeklyPlan = new weeklyPlan({
+            var newWeeklyPlan = new WeeklyPlan({
                 slackID: slackID,
                 week: week,
                 plans: submission
@@ -334,7 +334,7 @@ app.post('/apikey', async function(req, res){
             //res.send("So sorry that you said no to add rescuetime. Maybe you would change your mind later. When you are ready, try agin by saying rescuetime to me and input the right key.");
         }else if(data.actions[0].name == "new_plan_button"){
             var week = getMonday(new Date()).toDateString();
-            weeklyPlan.findOne({slackID:slackID, week:week}).exec(function(err, user){
+            WeeklyPlan.findOne({slackID:slackID, week:week}).exec(function(err, user){
                 if(err){
                     console.log(err);
                 } else {
