@@ -88,7 +88,7 @@ function weeklyPlanner(trigger=null){
                 if(!trigger || trigger==user.slackID){
                     console.log("weekly plan for ", user);
                     weeklyReport(user.slackID, user.rescuetime_key);
-                    setTimeout(function(){newPlan(user.slackID);}, 800);
+                    newPlan(user.slackID);
                 }
             });
         }
@@ -145,8 +145,7 @@ function pastWeekPlan(slackID, plans, access_token){
         result["productivity_pulse"] /= 7.0;
         console.log("result,", result);
         printDailyReport(slackID, result, true);
-        setTimeout(function(){
-            const promises = Object.keys(all_features).map(function (feature, index) {
+        const promises = Object.keys(all_features).map(function (feature, index) {
                 if(result[all_features[feature]]>=plans.get(feature)){
                     bot.postMessage(slackID, "You did great in achieving your goal on "+feature+" last week.", {as_user:true});
                     return 1;
@@ -154,16 +153,15 @@ function pastWeekPlan(slackID, plans, access_token){
                     bot.postMessage(slackID, "You did not achieve your goal on "+feature+" last week.", {as_user:true});
                     return 0;
                 }
-            });
-            Promise.all(promises).then(function (perfs) {
+        });
+        Promise.all(promises).then(function (perfs) {
                 var num = perfs.reduce((a, b) => a + b, 0);
                 if(num==4){
-                    setTimeout(function(){bot.postMessage(slackID, "Congratulations! You achieved all your goals set last week. Keep on!", {as_user:true})}, 100);
+                    bot.postMessage(slackID, "Congratulations! You achieved all your goals set last week. Keep on!", {as_user:true});
                 }else{
-                    setTimeout(function(){bot.postMessage(slackID, "Ooops! You didn't achieve all the goals set last week. Make it this week!", {as_user:true})}, 100);
+                    bot.postMessage(slackID, "Ooops! You didn't achieve all the goals set last week. Make it this week!", {as_user:true});
                 }
-            })
-        },200);
+        })
         // if(plans){
         //     var perf = 0;
         //     for(var feature in all_features){
