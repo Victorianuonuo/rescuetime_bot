@@ -172,9 +172,7 @@ function verifyJson(jsonfile){
 
 app.post('/apikey', async function(req, res){
     var data = JSON.parse(req.body.payload);
-    if(!slackID){
-        slackID = data.user.id;
-    }
+    slackID = data.user.id;
     console.log("post apikey:", data);
     if(data.type=="dialog_submission" && data.callback_id=="rescuetime_callback"){
         var token = data.submission.apikey;
