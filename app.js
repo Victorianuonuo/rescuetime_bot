@@ -43,6 +43,7 @@ passport.use(new RescueTimeStrategy({
   },
   function(req, accessToken, refreshToken, profile, done) {
     console.log("RescueTimeStrategy connect through button, accessToken, refreshToken, profile", accessToken, refreshToken, profile);
+    console.log(req);
     Apikey.findOne({slackID: req.query.auth_id}).exec(function(err, apikey){
         if(err){
             console.log(err);
