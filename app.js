@@ -43,8 +43,8 @@ passport.use(new RescueTimeStrategy({
   },
   function(req, accessToken, refreshToken, profile, done) {
     console.log("RescueTimeStrategy connect through button, accessToken, refreshToken, profile", accessToken, refreshToken, profile);
-    console.log(req);
-    Apikey.findOne({slackID: req.query.auth_id}).exec(function(err, apikey){
+    console.log("slackID:", req.query.state);
+    Apikey.findOne({slackID: req.query.state}).exec(function(err, apikey){
         if(err){
             console.log(err);
             done(err, apikey);
@@ -55,7 +55,7 @@ passport.use(new RescueTimeStrategy({
                 newApikey.rescuetime_key = accessToken;
             }else{
                 var newApikey = new Apikey({
-                    slackID: req.query.slackID,
+                    slackID: req.query.state,
                     rescuetime_key: accessToken,
                 });
             }
