@@ -93,7 +93,7 @@ router.get('/rescuetime/oauth', function(req, res, next) {
 });
 
 router.get('/rescuetime/callback',
-  passport.authenticate('rescuetime', { failureRedirect: '/apikey/rescuetime/callback'}),
+  passport.authenticate('rescuetime', { failureRedirect: '/apikey/rescuetime/callback', session: false }),
   function(req, res) {
     var slackID = req.query.state;
     console.log("/rescuetime/callback slackID req.query", slackID, req.query);
