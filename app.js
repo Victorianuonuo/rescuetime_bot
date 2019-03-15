@@ -3,7 +3,6 @@ var {Apikey} = require('./models/models');
 var mongoose = require('mongoose');
 var command = require('./routes/command');
 var apikey = require('./routes/apikey');
-var session = require('express-session');
 var _ = require('underscore');
 var {bot, authenResuetime, getMonday} = require('./bot');
 var passport = require('passport');
@@ -24,14 +23,7 @@ var bodyParser = require('body-parser');
 app.use(logger('dev'));
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(bodyParser.json());
-app.use(session({
-  maxAge: 86400000, // 24 hours
-  secret: 'no-one-will-find-out',
-  resave: true,
-  saveUninitialized: true
-}));
 app.use(passport.initialize());
-app.use(passport.session());
 const PORT=3000;
 
 passport.use(new RescueTimeStrategy({

@@ -89,14 +89,14 @@ router.get('/googlecalendar/connect/callback', function(req, res) {
 
 router.get('/rescuetime/oauth', function(req, res, next) {
     var slackID = req.query.auth_id;
-    req.session.auth_id = slackID;
     passport.authenticate('rescuetime', {state: slackID})(req, res, next);
 });
 
 router.get('/rescuetime/callback',
   passport.authenticate('rescuetime', { failureRedirect: '/apikey/rescuetime/callback'}),
   function(req, res) {
-    var slackID = req.session.auth_id;
+    var slackID = req.query.state;
+    console.log("/rescuetime/callback slackID req.query", slackID, req.query);
     // Successful authentication, redirect home.
     if(slackID){
         console.log("Successful rescuetime button connection.");
