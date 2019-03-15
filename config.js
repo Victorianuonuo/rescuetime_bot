@@ -1,6 +1,6 @@
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); // only when test bot.js
-var {ConfigUser} = require('./models');
+var {ConfigUser} = require('./models/models');
 mongoose.Promise = global.Promise;
 
 function json2func(configfile){

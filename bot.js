@@ -2,7 +2,7 @@ var SlackBot = require('slackbots');
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); // only when test bot.js
 const {google} = require('googleapis');
-var {User, Apikey, ConfigUser, WeeklyPlan} = require('./models');
+var {User, Apikey, ConfigUser, WeeklyPlan} = require('./models/models');
 var _ = require('underscore')
 var googleAuth = require('google-auth-library');
 var CronJob = require('cron').CronJob;
@@ -329,7 +329,7 @@ function authenticate(slackID){
                 {
                     "type": "button",
                     "text": "connect",
-                    "url": process.env.DOMAIN + '/oauth?auth_id='+slackID
+                    "url": process.env.DOMAIN + '/apikey/googlecalendar/oauth?auth_id='+slackID
                 }
             ]
         }
@@ -362,7 +362,7 @@ function userAuthen(user, is_print=false){
     var oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
-        process.env.DOMAIN + '/connect/callback'
+        process.env.DOMAIN + '/apikey/googlecalendar/connect/callback'
     );
 
     oauth2Client.setCredentials({
@@ -414,7 +414,7 @@ function listEvents(user, auth, config, is_print=false) {
     }, (err, res) => {
         if (err) return console.log('The API returned an error: ' + err);
         const events = res.data.items;
-        console.log(events);
+        //console.log(events);
         if (events.length) {
             console.log('The number of events: '+ events.length, user.email);
             if(is_print){
