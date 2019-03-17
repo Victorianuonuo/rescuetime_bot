@@ -104,7 +104,7 @@ function dailyReminder(trigger=null){
         if(err){
             console.log(err);
         }else{
-            //console.log("$$$$$get users: ", users);
+            //console.log("$$$$$get users: ", users); 
             if(users && users.length > 0){
                 users.forEach(function(user) {
                     if(!trigger || trigger==user.slackID){
@@ -217,6 +217,14 @@ function weeklyReport(slackID, access_token){
             "type": "mrkdwn",
             "text": "_*This is your weekly report*_",
     }}];
+    var url = "https://www.rescuetime.com/api/oauth/daily_summary_feed?access_token="+access_token;
+    
+    //var today = new Date(Date.now()- 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    //console.log("today, ", today);
+    axios.get(url).then(function(response){
+        var data = response.data[0];
+        dailyProgressEval(slackID, data, true);
+    });
     //printDailyReport(slackID, data, true, message);
     //TODO: get all the goals in this week 
     var achieved = [];
@@ -231,13 +239,13 @@ function weeklyReport(slackID, access_token){
                 if(plan.get("hour_spent") == "done") {
                     achieved.push({
                         "type": "plain_text",
-                        "text": `*${plan.get("focus_hours")} hours on ${plan.get("weekly_focus")}*`,
+                        "text": `*${Number(plan.get("focus_hours")).toFixed(2)} hours on ${plan.get("weekly_focus")}*`,
                         "emoji": true
                     })
                 } else {
                     not_achieved.push({
                         "type": "plain_text",
-                        "text": `*${plan.get("hour_spent")}/${plan.get("focus_hours")} hours on ${plan.get("weekly_focus")}*`,
+                        "text": `*${Number(plan.get("hour_spent")).toFixed(2)}/${Number(plan.get("focus_hours")).toFixed(2)} hours on ${plan.get("weekly_focus")}*`,
                         "emoji": true
                     })
                 }
@@ -349,11 +357,18 @@ function printDailyReport(slackID, data, week=false, message){
 function dailyProgressEval(slackID, data, week) {
     console.log("!!!!!!!!?????");
     var lastweek = getMonday(new Date()).toDateString();
+    if(week) {
+        lastweek = getMonday(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).toDateString();
+    }
     //var lastweek = getMonday(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).toDateString(); //!!! to test, I change 7 to 1
     WeeklyPlan.findOne({slackID: slackID, week:lastweek}).exec(function(err, user){
         if(err){
             console.log(err);
         }else{
+            if(!user) {
+                bot.postMessage(slackID, "You don't have plans last week", {as_user:true});
+                return;
+            }
             var goal = user.plans.get("weekly_focus");
             console.log("!!!!!!!!!!! this week goal: ", goal)
             var hour=0;
