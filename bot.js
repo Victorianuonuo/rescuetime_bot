@@ -208,24 +208,16 @@ function pastWeekPlan(slackID, plans, access_token){
     });
 }
 
-
-function weeklyReport(slackID, access_token){
-    var lastweek = getMonday(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).toDateString(); //to test, I change 7 to 1
+function printWeeklyReport(slackID) {
+    var achieved = [];
+    var not_achieved = [];
+    var lastweek = getMonday(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).toDateString(); 
     var message = [{
         "type": "section",
         "text": {
             "type": "mrkdwn",
             "text": "_*This is your weekly report*_",
     }}];
-    var url = "https://www.rescuetime.com/api/oauth/daily_summary_feed?access_token="+access_token;
-    
-    //var today = new Date(Date.now()- 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    //console.log("today, ", today);
-    axios.get(url).then(function(response){
-        var data = response.data[0];
-        dailyProgressEval(slackID, data, true);
-        var achieved = [];
-    var not_achieved = [];
     WeeklyPlan.find({slackID:slackID, week:lastweek}, function(err, users){
         if(users && users.length > 0) {
             user_plans = Array.from(users, usr=>usr.plans);
@@ -306,6 +298,23 @@ function weeklyReport(slackID, access_token){
         
         //console.log(user_plans);
     });
+}
+
+function weeklyReport(slackID, access_token){
+    var lastweek = getMonday(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).toDateString(); //to test, I change 7 to 1
+    var message = [{
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": "_*This is your weekly report*_",
+    }}];
+    var url = "https://www.rescuetime.com/api/oauth/daily_summary_feed?access_token="+access_token;
+    
+    //var today = new Date(Date.now()- 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    //console.log("today, ", today);
+    axios.get(url).then(function(response){
+        var data = response.data[0];
+        dailyProgressEval(slackID, data, true);
     });
     //printDailyReport(slackID, data, true, message);
     //TODO: get all the goals in this week 
@@ -520,6 +529,7 @@ function dailyProgressEval(slackID, data, week) {
                     }
                 } else {
                     console.log("weekly goal successfully made it!");
+                    printWeeklyReport(slackID);
                 }
             })
             .catch(function(res){
