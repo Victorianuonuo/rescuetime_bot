@@ -224,10 +224,7 @@ function weeklyReport(slackID, access_token){
     axios.get(url).then(function(response){
         var data = response.data[0];
         dailyProgressEval(slackID, data, true);
-    });
-    //printDailyReport(slackID, data, true, message);
-    //TODO: get all the goals in this week 
-    var achieved = [];
+        var achieved = [];
     var not_achieved = [];
     WeeklyPlan.find({slackID:slackID, week:lastweek}, function(err, users){
         if(users && users.length > 0) {
@@ -309,6 +306,92 @@ function weeklyReport(slackID, access_token){
         
         //console.log(user_plans);
     });
+    });
+    //printDailyReport(slackID, data, true, message);
+    //TODO: get all the goals in this week 
+    /*
+    var achieved = [];
+    var not_achieved = [];
+    WeeklyPlan.find({slackID:slackID, week:lastweek}, function(err, users){
+        if(users && users.length > 0) {
+            user_plans = Array.from(users, usr=>usr.plans);
+            console.log("!!!!! users: ", users);
+            for (var i = 0; i < user_plans.length; i++) {
+                var plan = user_plans[i];
+                var text = ``;
+                if(plan.get("hour_spent") == "done") {
+                    achieved.push({
+                        "type": "plain_text",
+                        "text": `*${Number(plan.get("focus_hours")).toFixed(2)} hours on ${plan.get("weekly_focus")}*`,
+                        "emoji": true
+                    })
+                } else {
+                    not_achieved.push({
+                        "type": "plain_text",
+                        "text": `*${Number(plan.get("hour_spent")).toFixed(2)}/${Number(plan.get("focus_hours")).toFixed(2)} hours on ${plan.get("weekly_focus")}*`,
+                        "emoji": true
+                    })
+                }
+            }
+            message.push({
+                "type": "section",
+                "text": {
+                "type": "mrkdwn",
+                "text": ":smile:*What you have achieved last week*"
+                }
+            });
+            message.push({
+                "type": "divider"
+            });
+            if(achieved.length == 0 ){
+                message.push({
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "_You have achieved nothing_"
+                        }
+                    }
+                )
+            } else {
+                message.push({
+                    "type": "section",
+                    "fields": achieved
+                })
+            }
+            
+            message.push({
+                "type": "section",
+                "text": {
+                "type": "mrkdwn",
+                "text": ":cry:*Your remaining task for last week*"
+                }
+            });
+            message.push({
+                "type": "divider"
+            });
+            if(not_achieved.length == 0 ){
+                message.push({
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "_You don't have any remaining tasks_"
+                        }
+                    }
+                )
+            } else {
+                message.push({
+                    "type": "section",
+                    "fields": not_achieved
+                })
+            }
+    
+            bot.postMessage(slackID, "", {as_user:true, blocks:message});
+        } else {
+            bot.postMessage(slackID, "You don't set goals last week.", {as_user:true});
+        }
+        
+        //console.log(user_plans);
+    });*/
     /*
     WeeklyPlan.findOne({slackID:slackID, week:lastweek}).exec(function(err, user){
         var plans;
