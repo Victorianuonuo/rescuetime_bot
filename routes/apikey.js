@@ -12,6 +12,8 @@ var googleAuth = require('google-auth-library');
 var CLIENT_ID = process.env.CLIENT_ID;
 var CLIENT_SECRET = process.env.CLIENT_SECRET;
 
+var {startDialog} = require('./common');
+
 router.get('/googlecalendar/oauth', function(req, res){
     var oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
@@ -210,6 +212,7 @@ router.post('/', async function(req, res){
             });
         }else if(data.callback_id=="newplan_callback"){
             var submission = data.submission;
+            submission["hour_spent"] = 0; //record how long the user has already spent on
             console.log("submission: ", submission);
             var week = getMonday(new Date()).toDateString();
             var newWeeklyPlan = new WeeklyPlan({
@@ -220,7 +223,7 @@ router.post('/', async function(req, res){
             console.log(newWeeklyPlan);
             newWeeklyPlan.save()
                 .then( () => {
-                    bot.postMessage(slackID, "Congratulations! You successfully set weekly plan", {as_user:true});
+                    bot.postMessage(slackID, "Yay great job! You've successfully set your weekly goal. I will keep you on track :smile:", {as_user:true});
                     })
                 .catch((err) => {
                     console.log('error in new newWeeklyPlan api');
@@ -279,55 +282,36 @@ router.post('/', async function(req, res){
                     if(user){
                         bot.postMessage(slackID, "Ooops! Seems that you have already set a plan for this week", {as_user:true});
                     }else{
-                        var softwareOptions = [];
-                        var writingOptions = [];
-                        var learningOptions = [];
-                        var productivityOptions = [];
+                        var hourOptions = [];
+                        var focuses = [
+                            {"label": "Software Development", "value": "Software Development"},
+                            {"label": "Writing more", "value": "Writing more"},
+                            {"label": "Learning new things", "value": "Learning new things"}];
                         for (var i = 30; i >= 0; i-=2) {
-                            softwareOptions.push({"label":i.toString(), "value":i.toString()});
+                            hourOptions.push({"label":i.toString(), "value":i.toString()});
                         }
-                        for (var i = 20; i >= 0; i-=2) {
-                            writingOptions.push({"label":i.toString(), "value":i.toString()});
-                        }
-                        for (var i = 20; i >= 0; i-=2) {
-                            learningOptions.push({"label":i.toString(), "value":i.toString()});
-                        }
-                        for (var i = 90; i >= 50; i-=5) {
-                            productivityOptions.push({"label":i.toString(), "value":i.toString()});
-                        }
+                        
                         var requestData = {
                             "trigger_id": data.trigger_id,
                             "dialog": {
                                 "callback_id": "newplan_callback",
-                                "title": "New Plan for this week!",
+                                "title": "New FOCUS for this week!",
                                 "submit_label": "Request",
                                 "notify_on_cancel": true,
                                 "state": "Limo",
                                 "elements": [
                                     {
-                                        "label": "Time spent on software development this week",
+                                        "label": "Select one thing you want to focus for this week",
                                         "type": "select",
-                                        "name": "software_development",
-                                        "options": softwareOptions
+                                        "name": "weekly_focus",
+                                        "options": focuses
                                     },
                                     {
-                                        "label": "Time spent on writing this week",
+                                        "label": "Time you want to spend on this activity",
                                         "type": "select",
-                                        "name": "writing",
-                                        "options": writingOptions
-                                    },
-                                    {
-                                        "label": "Time spent on learning this week",
-                                        "type": "select",
-                                        "name": "learning",
-                                        "options": learningOptions
-                                    },
-                                    {
-                                        "label": "Productivity this week",
-                                        "type": "select",
-                                        "name": "productivity",
-                                        "options": productivityOptions
-                                    },
+                                        "name": "focus_hours",
+                                        "options": hourOptions
+                                    }
                                 ],
                             },
                         };
