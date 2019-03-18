@@ -71,14 +71,52 @@ var configUserSchema = new Schema({
     }
 });
 
+var slackKeySchema = new Schema({
+    slackID: {
+        type: String,
+        required: true,
+        unique: true,
+        index: true
+    },
+    access_token: {
+        type: String,
+        required: true
+    },
+});
+
+var presenceSchema = new Schema({
+    queryTime:{
+        type: String,
+        required: true,
+        unique: true
+    },
+    queryResult:{
+        type: String,
+        require: true
+    }
+});
+
+var userPresenceSchema = new Schema({
+    slackID: {
+        type: String,
+        required: true,
+        unique: true,
+        index: true
+    },
+    presences:[presenceSchema]
+});
 
 var User = mongoose.model('User', userSchema);
 var Apikey = mongoose.model('Apikey', apikeySchema);
 var ConfigUser = mongoose.model('ConfigUser', configUserSchema);
 var WeeklyPlan = mongoose.model('WeeklyPlan', weeklyPlanSchema);
+var SlackKey = mongoose.model('SlackKey', slackKeySchema);
+var UserPresence = mongoose.model('UserPresence', userPresenceSchema);
 module.exports = {
     User: User,
     Apikey: Apikey,
     ConfigUser: ConfigUser,
     WeeklyPlan: WeeklyPlan,
+    SlackKey: SlackKey,
+    UserPresence: UserPresence,
 };

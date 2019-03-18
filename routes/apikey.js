@@ -111,6 +111,28 @@ router.get('/rescuetime/callback',
     }
   });
 
+router.get('/slack/oauth', function(req, res, next) {
+    var slackID = req.query.auth_id;
+    passport.authenticate('Slack', {state: slackID})(req, res, next);
+});
+
+router.get('/slack/callback',
+  passport.authenticate('Slack', { failureRedirect: '/apikey/slack/callback', session: false }),
+  function(req, res) {
+    var slackID = req.query.state;
+    console.log("/slack/callback slackID req.query", slackID, req.query);
+    // Successful authentication, redirect home.
+    if(slackID){
+        console.log("Successful slack button connection.");
+        bot.postMessage(slackID, "Congratulations! You successfully add slack.", {as_user:true});
+        res.status(200).send("Your account was successfully authenticated");
+    }else{
+        console.log("Error in slack button connection, missing slackID ", slackID);
+        bot.postMessage(slackID, "Ooops! Something went wrong! Please try again!", {as_user:true});
+        res.status(400).send("Your slackID is missing when call back!");
+    }
+  });
+
 router.post('/', async function(req, res){
     var data = JSON.parse(req.body.payload);
     var slackID = data.user.id;

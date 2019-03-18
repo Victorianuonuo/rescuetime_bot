@@ -2,7 +2,7 @@ var SlackBot = require('slackbots');
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); // only when test bot.js
 const {google} = require('googleapis');
-var {User, Apikey, ConfigUser, WeeklyPlan} = require('./models/models');
+var {User, Apikey, ConfigUser, WeeklyPlan, SlackKey} = require('./models/models');
 var _ = require('underscore')
 var googleAuth = require('google-auth-library');
 var CronJob = require('cron').CronJob;
@@ -125,17 +125,6 @@ function dailyReminder(trigger=null){
 
 function printWeeklyPlan(slackID, plans, last){
     console.log("printWeeklyPlan", plans, last);
-    /*
-    var plan_string = last?"You planned to spend":"You plan to spend";
-    const features = ["software_development", "writing", "learning"];
-    for(var idx in features){
-        plan_string += " "+Number(plans.get(features[idx])).toFixed(2)+" hours on "+features[idx]+",";
-    }
-    plan_string += " and achieve ";
-    plan_string += Number(plans.get("productivity")).toFixed(2);
-    plan_string += last?" on productivity last week.":" on productivity this week.";
-    bot.postMessage(slackID, plan_string, {as_user:true});
-    */
    return [{
     "type": "section",
     "text": {
@@ -186,22 +175,6 @@ function pastWeekPlan(slackID, plans, access_token){
                 }
             })
         },200);
-        // if(plans){
-        //     var perf = 0;
-        //     for(var feature in all_features){
-        //         if(result[all_features[feature]]>=plans.get(feature)){
-        //             perf+=1;
-        //             bot.postMessage(slackID, "You did great in achieving your goal on "+feature+" last week.", {as_user:true});
-        //         }else{
-        //             bot.postMessage(slackID, "You did not achieve your goal on "+feature+" last week.", {as_user:true});
-        //         }
-        //     }
-        //     if(perf==4){
-        //         bot.postMessage(slackID, "Congratulations! You achieved all your goals set last week. Keep on!", {as_user:true});
-        //     }else{
-        //         bot.postMessage(slackID, "Ooops! You didn't achieve all the goals set last week. Make it this week!", {as_user:true});
-        //     }
-        // }
     }).catch(function(err){
         console.log("last week report err ", err);
         bot.postMessage(slackID, "Sorry! Cannot read your last week's activity.", {as_user:true});
@@ -309,115 +282,11 @@ function weeklyReport(slackID, access_token){
             "text": "_*This is your weekly report*_",
     }}];
     var url = "https://www.rescuetime.com/api/oauth/daily_summary_feed?access_token="+access_token;
-    
-    //var today = new Date(Date.now()- 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    //console.log("today, ", today);
+
     axios.get(url).then(function(response){
         var data = response.data[0];
         dailyProgressEval(slackID, data, true);
     });
-    //printDailyReport(slackID, data, true, message);
-    //TODO: get all the goals in this week 
-    /*
-    var achieved = [];
-    var not_achieved = [];
-    WeeklyPlan.find({slackID:slackID, week:lastweek}, function(err, users){
-        if(users && users.length > 0) {
-            user_plans = Array.from(users, usr=>usr.plans);
-            console.log("!!!!! users: ", users);
-            for (var i = 0; i < user_plans.length; i++) {
-                var plan = user_plans[i];
-                var text = ``;
-                if(plan.get("hour_spent") == "done") {
-                    achieved.push({
-                        "type": "plain_text",
-                        "text": `*${Number(plan.get("focus_hours")).toFixed(2)} hours on ${plan.get("weekly_focus")}*`,
-                        "emoji": true
-                    })
-                } else {
-                    not_achieved.push({
-                        "type": "plain_text",
-                        "text": `*${Number(plan.get("hour_spent")).toFixed(2)}/${Number(plan.get("focus_hours")).toFixed(2)} hours on ${plan.get("weekly_focus")}*`,
-                        "emoji": true
-                    })
-                }
-            }
-            message.push({
-                "type": "section",
-                "text": {
-                "type": "mrkdwn",
-                "text": ":smile:*What you have achieved last week*"
-                }
-            });
-            message.push({
-                "type": "divider"
-            });
-            if(achieved.length == 0 ){
-                message.push({
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "_You have achieved nothing_"
-                        }
-                    }
-                )
-            } else {
-                message.push({
-                    "type": "section",
-                    "fields": achieved
-                })
-            }
-            
-            message.push({
-                "type": "section",
-                "text": {
-                "type": "mrkdwn",
-                "text": ":cry:*Your remaining task for last week*"
-                }
-            });
-            message.push({
-                "type": "divider"
-            });
-            if(not_achieved.length == 0 ){
-                message.push({
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "_You don't have any remaining tasks_"
-                        }
-                    }
-                )
-            } else {
-                message.push({
-                    "type": "section",
-                    "fields": not_achieved
-                })
-            }
-    
-            bot.postMessage(slackID, "", {as_user:true, blocks:message});
-        } else {
-            bot.postMessage(slackID, "You don't set goals last week.", {as_user:true});
-        }
-        
-        //console.log(user_plans);
-    });*/
-    /*
-    WeeklyPlan.findOne({slackID:slackID, week:lastweek}).exec(function(err, user){
-        var plans;
-        if(err){
-            console.log(err);
-        }else{
-            if(user){
-                //console.log(user);
-                //printWeeklyPlan(slackID, user.plans, true);
-                plans = user.plans;
-                console.log("######### plans: ", plans);
-            }else{
-                bot.postMessage(slackID, "You don't set goals last week.", {as_user:true});
-            }
-        }
-        //pastWeekPlan(slackID, plans, access_token);
-    });*/
 }
 
 function printDailyReport(slackID, data, week=false, message){
@@ -643,6 +512,8 @@ bot.on("message", message => {
                                 dailyReminder(slackID);
                             }else if(message.text.includes("newPlan")) {
                                 newPlan(slackID);
+                            }else if(message.text.includes("slack")){
+                                authenSlack(slackID);
                             }
                         }
                     }
@@ -789,6 +660,36 @@ function authenResuetime(slackID){
                 });
             }else{
                 bot.postMessage(slackID,"Congratulations! You successfully add rescuetime.",{as_user: true});
+            }
+        }
+    });
+}
+
+function authenSlack(slackID){
+    console.log("enter authenSlack");
+    SlackKey.findOne({slackID: slackID}).exec(function(err, user){
+        if(err){
+            console.log(err);
+        } else {
+            console.log(user);
+            if(!user){
+                bot.postMessage(slackID, 'Please click the following button to add Slack as a data source.' , {
+                    as_user:true,
+                    "attachments": [
+                        {
+                            "fallback": "activate",
+                            "actions": [
+                                {
+                                    "type": "button",
+                                    "text": "connect",
+                                    "url": process.env.DOMAIN + '/apikey/slack/oauth?auth_id='+slackID
+                                }
+                            ]
+                        }
+                    ]
+                });
+            }else{
+                bot.postMessage(slackID,"Congratulations! You successfully add slack.",{as_user: true});
             }
         }
     });
