@@ -45,7 +45,7 @@ router.get('/googlecalendar/connect/callback', function(req, res) {
         process.env.GOOGLE_CLIENT_SECRET,
         process.env.DOMAIN + '/apikey/googlecalendar/connect/callback'
     )
-    console.log("this is oauth", oauth2Client);
+    //console.log("this is oauth", oauth2Client);
     oauth2Client.getToken(code, function (err, tokens) {
         if(err) {
             console.log(err);
