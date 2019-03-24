@@ -53,7 +53,47 @@ var weeklyPlanSchema = new Schema({
 });
 weeklyPlanSchema.index({ slackID: 1, week: 1 }, { unique: true });
 
-
+var weeklyMultiPlanSchema = new Schema({
+    slackID: {
+        type: String,
+        required: true,
+        index: true
+    },
+    week: {
+        type: String,
+        required: true,
+        index: true
+    },
+    plans: {
+        type: Map,
+        of: String
+    },
+    done: {
+        type: Boolean,
+        required: true
+    }
+});
+var shortFocus = new Schema({
+    slackID: {
+        type: String,
+        required: true,
+        index: true
+    },
+    plans: {
+        type: Map,
+        of: String,
+        index:true
+    },
+    rescueTimeStart: {
+        type: Map,
+        of: String,
+        index:true
+    },
+    done: {
+        type: Boolean,
+        required: true,
+    },
+});
 var configUserSchema = new Schema({
     slackID: {
         type: String,
@@ -112,6 +152,8 @@ var ConfigUser = mongoose.model('ConfigUser', configUserSchema);
 var WeeklyPlan = mongoose.model('WeeklyPlan', weeklyPlanSchema);
 var SlackKey = mongoose.model('SlackKey', slackKeySchema);
 var UserPresence = mongoose.model('UserPresence', userPresenceSchema);
+var WeeklyMultiPlan = mongoose.model('WeeklyMultiPlan', weeklyMultiPlanSchema);
+var ShortFocus = mongoose.model('ShortFocuse', shortFocus);
 module.exports = {
     User: User,
     Apikey: Apikey,
@@ -119,4 +161,6 @@ module.exports = {
     WeeklyPlan: WeeklyPlan,
     SlackKey: SlackKey,
     UserPresence: UserPresence,
+    WeeklyMultiPlan: WeeklyMultiPlan,
+    ShortFocus: ShortFocus
 };

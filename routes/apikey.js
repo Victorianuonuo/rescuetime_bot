@@ -3,7 +3,7 @@ var express = require('express');
 var router = express.Router();
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); 
-var {User, Apikey, ConfigUser, WeeklyPlan} = require('../models/models');
+var {User, Apikey, ConfigUser, WeeklyPlan, WeeklyMultiPlan} = require('../models/models');
 var {bot, getMonday, authenResuetime} = require('../bot');
 var {verifyJson} = require('./common');
 var passport = require('passport');
@@ -234,9 +234,35 @@ router.post('/', async function(req, res){
             });
         }else if(data.callback_id=="newplan_callback"){
             var submission = data.submission;
+            if(isNaN(submission["focus_hours"]) || isNaN(parseFloat(submission["focus_hours"]))) {
+                console.log("!!!! input hours not numeric: ", submission);
+                res.type('application/json');
+                var errorMsg = {
+                    "errors": [
+                        {"name": "focus_hours", "error": "This should only be numeric"}
+                    ]
+                }
+                res.status(200).send(errorMsg);
+            } else {
             submission["hour_spent"] = 0; //record how long the user has already spent on
-            console.log("submission: ", submission);
+            //console.log("submission: ", submission);
             var week = getMonday(new Date()).toDateString();
+            var newWeeklyMultiPlan = new WeeklyMultiPlan({
+                slackID: slackID,
+                week: week,
+                plans: submission,
+                done: false
+            });
+            newWeeklyMultiPlan.save()
+                .then(() => {
+                    bot.postMessage(slackID, `Great! You've set a goal to spend ${submission.focus_hours} hours on ${submission.weekly_focus}. I will keep you on track :smile:`, {as_user:true});
+                })
+                .catch((err) => {
+                    bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again saying weeklyplan", {as_user:true});
+                })
+            res.send();
+            }
+            /*
             var newWeeklyPlan = new WeeklyPlan({
                 slackID: slackID,
                 week: week,
@@ -257,8 +283,23 @@ router.post('/', async function(req, res){
                     }
                 });
             res.send();
+            */
         }
-    }else if(data.type == "interactive_message"){
+    } else if(data.type == "dialog_cancellation") {
+        console.log("!!!!! user has cancel the dialog!!");
+        console.log(data);
+    } else if(data.type == "block_actions") {
+        if(data.actions[0].placeholder.text == "Choose an activity") {
+            var activity = data.actions[0].selected_option.text.text;
+            bot.postMessage(slackID, `Tell me how long you want to spend on ${activity}? \n Say *I want to spend XX minutes on ${activity}* to me`, {as_user:true});
+        }
+        /*
+        if(data.actions[0].placeholder=="Choose an activity") {
+            bot.postMessage(slackID, "ok!", {as_user:true});
+        }*/
+        res.send();
+    }
+    else if(data.type == "interactive_message"){
         if(data.actions[0].name == "rescuetime_api_key_yes"){
             Apikey.findOne({slackID: slackID}).exec(function(err, apikey){
                 if(err){
@@ -296,6 +337,55 @@ router.post('/', async function(req, res){
             //res.send("So sorry that you said no to add rescuetime. Maybe you would change your mind later. When you are ready, try agin by saying rescuetime to me and input the right key.");
         }else if(data.actions[0].name == "new_plan_button"){
             var week = getMonday(new Date()).toDateString();
+            
+            WeeklyMultiPlan.findOne({slackID: slackID, week: week, done:false}).exec(function(err, user){
+                if(err){
+                    console.log(err);
+                } else {
+                    if(user) {
+                        bot.postMessage(slackID, "you haven't finished your last focus yet! Can't set new!", {as_user: true});
+                        res.send();
+                    } else {
+                        var hourOptions = [];
+                        var focuses = [
+                            {"label": "Software Development", "value": "Software Development"},
+                            {"label": "Writing more", "value": "Writing more"},
+                            {"label": "Learning new things", "value": "Learning new things"}];
+                        for (var i = 30; i >= 0; i-=2) {
+                            hourOptions.push({"label":i.toString(), "value":i.toString()});
+                        }
+                        
+                        var requestData = {
+                            "trigger_id": data.trigger_id,
+                            "notify_on_cancel": true,
+                            "dialog": {
+                                "callback_id": "newplan_callback",
+                                "title": "New FOCUS for this week!",
+                                "submit_label": "Request",
+                                "notify_on_cancel": true,
+                                "state": "Limo",
+                                "elements": [
+                                    {
+                                        "label": "Select one thing you want to focus for this week",
+                                        "type": "select",
+                                        "name": "weekly_focus",
+                                        "options": focuses
+                                    },
+                                    {
+                                        "label": "How many hours do you want to spend",
+                                        "name": "focus_hours",
+                                        "type": "text",
+                                        "subtype": "number",
+                                        "placeholder": "Numbers only"
+                                      }
+                                ],
+                            },
+                        };
+                        startDialog(requestData);
+                    }
+                }
+            });
+            /*
             WeeklyPlan.findOne({slackID:slackID, week:week}).exec(function(err, user){
                 if(err){
                     console.log(err);
@@ -341,6 +431,7 @@ router.post('/', async function(req, res){
                     }
                 }
             });
+            */
         }
     };
 })
