@@ -2,14 +2,15 @@ var SlackBot = require('slackbots');
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); // only when test bot.js
 const {google} = require('googleapis');
-var {User, Apikey, ConfigUser, WeeklyPlan, SlackKey} = require('./models/models');
+var {User, Apikey, ConfigUser, WeeklyPlan, SlackKey, WeeklyMultiPlan, ShortFocus} = require('./models/models');
 var _ = require('underscore')
 var googleAuth = require('google-auth-library');
 var CronJob = require('cron').CronJob;
 var Config = require('./config');
 var axios = require('axios');
 var is_greet = false;
-
+var {startDialog} = require('./routes/common');
+const uuidv4 = require('uuid/v4');
 const envKey = process.env.NUDGE_BOT_TOKEN;
 mongoose.Promise = global.Promise;
 
@@ -99,7 +100,28 @@ function weeklyPlanner(trigger=null){
 
 function dailyReminder(trigger=null){
     var week = getMonday(new Date()).toDateString();
-    //console.log("$$$$$$$$$ in dailyREminder");
+    WeeklyMultiPlan.find({week:week, done:false}).exec(function(err, users){
+        if(err){
+            console.log(err);
+        }else{
+            //console.log("$$$$$get users: ", users); 
+            if(users && users.length > 0){
+                users.forEach(function(user) {
+                    if(!trigger || trigger==user.slackID){
+                        console.log("########daily reminder for ", user);
+                        dailyReport(user.slackID, user.week, user.plans);
+                    }
+                });
+            } else {
+                console.log("########## no plan this week");
+                if(trigger) {
+                    bot.postMessage(trigger, "You don't have any plan yet.", {as_user:true});
+                    newPlan(trigger);
+                }
+            }
+        }
+    });
+    /*
     WeeklyPlan.find({week:week}).exec(function(err, users){
         if(err){
             console.log(err);
@@ -121,6 +143,7 @@ function dailyReminder(trigger=null){
             }
         }
     });
+    */
 }
 
 function printWeeklyPlan(slackID, plans, last){
@@ -191,10 +214,27 @@ function printWeeklyReport(slackID) {
             "type": "mrkdwn",
             "text": "_*This is your weekly report*_",
     }}];
-    WeeklyPlan.find({slackID:slackID, week:lastweek}, function(err, users){
+    WeeklyMultiPlan.find({slackID:slackID, week:lastweek}, function(err, users){
         if(users && users.length > 0) {
             user_plans = Array.from(users, usr=>usr.plans);
             console.log("!!!!! users: ", users);
+            for (var i=0; i< users.length; i++) {
+                var user = users[i];
+                if(user.done) {
+                    achieved.push({
+                        "type": "plain_text",
+                        "text": `*${Number(user.plans.get("focus_hours")).toFixed(2)} hours on ${user.plans.get("weekly_focus")}*`,
+                        "emoji": true
+                    });
+                } else {
+                    not_achieved.push({
+                        "type": "plain_text",
+                        "text": `*${Number(user.plans.get("hour_spent")).toFixed(2)}/${Number(user.plans.get("focus_hours")).toFixed(2)} hours on ${user.plans.get("weekly_focus")}*`,
+                        "emoji": true
+                    });
+                }
+            }
+            /*
             for (var i = 0; i < user_plans.length; i++) {
                 var plan = user_plans[i];
                 var text = ``;
@@ -212,6 +252,7 @@ function printWeeklyReport(slackID) {
                     })
                 }
             }
+            */
             message.push({
                 "type": "section",
                 "text": {
@@ -275,17 +316,27 @@ function printWeeklyReport(slackID) {
 
 function weeklyReport(slackID, access_token){
     var lastweek = getMonday(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).toDateString(); //to test, I change 7 to 1
-    var message = [{
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": "_*This is your weekly report*_",
-    }}];
     var url = "https://www.rescuetime.com/api/oauth/daily_summary_feed?access_token="+access_token;
-
-    axios.get(url).then(function(response){
-        var data = response.data[0];
-        dailyProgressEval(slackID, data, true);
+    WeeklyMultiPlan.find({slackID:slackID, week:lastweek}, function(err, users){
+        if(users && users.length > 0) {
+            var has_not_done = false;
+            for(var i=0; i<users.length; i++) {
+                var user = users[i];
+                if(!user.done) {
+                    has_not_done = true;             
+                }
+            }
+            if(has_not_done) {
+                axios.get(url).then(function(response){
+                    var data = response.data[0];
+                    dailyProgressEval(slackID, data, true);
+                });
+            } else {
+                printWeeklyReport(slackID);
+            }
+        } else {
+            bot.postMessage(slackID, "You don't set goals last week.", {as_user:true});
+        }
     });
 }
 
@@ -295,34 +346,54 @@ function printDailyReport(slackID, data, week=false, message){
     }
     var daily_report = "The time you spent yesterday: \n";
     const features = {"software_development":"software_development_hours", "writing":"design_and_composition_hours", "learning":"reference_and_learning_hours"};
+    /*
     for(var feature in features){
         daily_report += Number((data[features[feature]]).toFixed(2))+" hours on "+feature+",\n";
-    }
-    //daily_report += " and your productivity pulse was "+Number((data["productivity_pulse"]).toFixed(2))+(lastweek?" last week.":" yesterday.");
-    message.push({
-        "type": "section",
-        "text": {
-        "type": "plain_text",
-        "text": `${daily_report}`,
-        "emoji": true}
+    }*/
+    var lastweek = getMonday(new Date()).toDateString();
+    WeeklyMultiPlan.findOne({slackID: slackID, week:lastweek, done:false}).exec(function(err, user){
+        if(err) {
+            console.log("an error has occurred");
+        } else {
+            if(user) {
+                var goal = user.plans.get("weekly_focus");
+                var hour=0;
+                if(goal == 'Software Development') {
+                    hour = Number((data['software_development_hours']).toFixed(2));
+                } else if(goal == 'Writing more') {
+                    hour = Number((data['design_and_composition_hours'])).toFixed(2);
+                } else if(goal == 'Learning new things') {
+                    hour = Number((data['reference_and_learning_hours']).toFixed(2));
+                }
+            
+                daily_report = daily_report + `You spent *${hour} hours* on your weekly goal ${goal} yesterday.`;
+                message.push({
+                    "type": "section",
+                    "text": {
+                    "type": "mrkdwn",
+                    "text": `${daily_report}`,
+                    }
+                });
+                message.push({
+                    "type": "divider"
+                });
+                // daily hours spent evaluation here
+                //message.push(...eval);
+                bot.postMessage(slackID, daily_report, {as_user:true, "blocks": message});
+                
+                dailyProgressEval(slackID, data, week);
+            }
+        }
     });
-    message.push({
-        "type": "divider"
-    });
-    // daily hours spent evaluation here
-    //message.push(...eval);
-    bot.postMessage(slackID, daily_report, {as_user:true, "blocks": message});
-    
-    dailyProgressEval(slackID, data, week);
 }
 function dailyProgressEval(slackID, data, week) {
-    console.log("!!!!!!!!?????");
     var lastweek = getMonday(new Date()).toDateString();
     if(week) {
         lastweek = getMonday(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).toDateString();
     }
+    console.log("$$$$$$ lastweek: ", lastweek);
     //var lastweek = getMonday(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).toDateString(); //!!! to test, I change 7 to 1
-    WeeklyPlan.findOne({slackID: slackID, week:lastweek}).exec(function(err, user){
+    WeeklyMultiPlan.findOne({slackID: slackID, week:lastweek, done:false}).exec(function(err, user){
         if(err){
             console.log(err);
         }else{
@@ -331,7 +402,7 @@ function dailyProgressEval(slackID, data, week) {
                 return;
             }
             var goal = user.plans.get("weekly_focus");
-            console.log("!!!!!!!!!!! this week goal: ", goal)
+
             var hour=0;
             if(goal == 'Software Development') {
                 hour = Number((data['software_development_hours']).toFixed(2));
@@ -343,8 +414,7 @@ function dailyProgressEval(slackID, data, week) {
             //console.log("!!!! hour: ", hour);
             var curTotalHour = Number(hour) + Number(user.plans.get("hour_spent"));
             var targetHour = Number(user.plans.get("focus_hours"));
-            console.log("!!!! curTotalHour: ", curTotalHour);
-            //console.log("!!!! targetHour: ", targetHour);
+
             var update = {};
             var text = ``;
             var imgUrl = "";
@@ -368,8 +438,9 @@ function dailyProgressEval(slackID, data, week) {
                       "plans": {
                         "weekly_focus": goal,
                         "focus_hours": targetHour,
-                        "hour_spent": "done"
-                      }
+                        "hour_spent": curTotalHour
+                      },
+                      "done": true
                     }
                 };
                 text = `You finish ${goal}!! Well done!!`;
@@ -389,7 +460,7 @@ function dailyProgressEval(slackID, data, week) {
                     "alt_text": "image1"
                 }
             ]; 
-            WeeklyPlan.updateOne({slackID: slackID, week:lastweek}, update)
+            WeeklyMultiPlan.updateOne({slackID: slackID, week:lastweek, done:false}, update)
             .then(function(res){
                 if(!week) {
                     bot.postMessage(slackID, '', {as_user:true, "blocks": val});
@@ -397,7 +468,6 @@ function dailyProgressEval(slackID, data, week) {
                         setTimeout(function(){newPlan(user.slackID, "Good job! Set a new goal!");}, 800);
                     }
                 } else {
-                    console.log("weekly goal successfully made it!");
                     printWeeklyReport(slackID);
                 }
             })
@@ -514,6 +584,11 @@ bot.on("message", message => {
                                 newPlan(slackID);
                             }else if(message.text.includes("slack")){
                                 authenSlack(slackID);
+                            }else if(message.text.includes("focus")) {
+                                shortFocus(slackID);
+                                //checkShortFocus(slackID);
+                            }else if(message.text.includes("I want to spend")) {
+                                setShortFocus(slackID, message);
                             }
                         }
                     }
@@ -524,7 +599,207 @@ bot.on("message", message => {
     }
     
 });
-
+function checkShortFocus(slackID) {
+    Apikey.findOne({slackID: slackID}).exec(function(err, user){
+        if(err) {
+            console.log("an error occured");
+        } else {
+            if(user) {
+                var rescuetimeKey = user.rescuetime_key;
+                if(rescuetimeKey) {
+                    ShortFocus.findOne({slackID:slackID, done:false}).exec(function(err, user){
+                        if(user) {
+                            var target = user.rescueTimeStart.get("target");
+                            var startSecs = Number(user.rescueTimeStart.get("secs"));
+                            var targetSecs = Number(user.plans.get("num"))*60;
+                            var url = "https://www.rescuetime.com/api/oauth/data";
+                            var secs = 0; 
+                            var d = new Date();
+                            axios.get(url, {
+                                params: {
+                                  access_token: rescuetimeKey,
+                                  restrict_begin: d.toISOString(),
+                                  restrict_end: d.toISOString(),
+                                  format: 'json' 
+                                }
+                              })
+                            .then(function(res){
+                                var data = res.data;    
+                                for(var i=0; i<data.rows.length; i++) {
+                                    if(data.rows[i][4] == target) {
+                                        console.log("?????? "+data.rows[i][3]+" "+data.rows[i][4]+" and seconds: "+data.rows[i][1]);
+                                        secs += Number(data.rows[i][1]);
+                                    }   
+                                }
+                                var diff = secs - startSecs;
+                                console.log("$$$$$$ diff: ", diff);
+                                if(diff >= targetSecs) {
+                                    var msg = `Congrats! You decide to spend *${user.plans.get("num")} minutes* on *${user.plans.get("activity")}* and you did it!:smile:`;
+                                    bot.postMessage(slackID, msg, {as_user:true});
+                                } else {
+                                    var msg = `Oops! You decide to spend *${user.plans.get("num")} minutes* on *${user.plans.get("activity")}* and it seems you didn't focus too much on it:cry:`;
+                                    bot.postMessage(slackID, msg, {as_user:true});
+                                }
+                                
+                                var update = {
+                                    $set: {
+                                      "done": true
+                                    }
+                                };
+                                ShortFocus.updateOne({slackID: slackID, done:false}, update)
+                                .then(function(res){
+                                    console.log("!!!!! update success");
+                                })
+                                .catch(function(err){
+                                    console.log("!!!! an update error occured");
+                                })
+                            })
+                            .catch(function(err){
+                                console.log("an error occured");
+                            });
+                        }
+                    });
+                } else {
+                    bot.postMessage(slackID, "You didn't set up your RescueTime key!", {as_user:true});
+                    authenResuetime(slackID);
+                }
+            } else {
+                bot.postMessage(slackID, "You didn't add your api key!", {as_user:true});
+            }
+        }
+    });
+}
+function setShortFocus(slackID, message) {
+    console.log("!!!!! message: ", message);
+    console.log("token: ", bot.token);
+    var r = /\d+/;
+    var msg = message.text;
+    var match = msg.match(r);
+    
+    console.log(Math.floor(new Date(Date.now()+1 * 1 * 2 * 60 * 1000).getTime() / 1000));
+    if(match != null) {
+        var num = Number(match[0]);
+        var activity = "";
+        var target = "";
+        if(msg.includes("Software Development") || msg.includes("software development")) {
+            activity = "Software Development";
+            target = "General Software Development";
+        } else if(msg.includes("Write More") || msg.includes("write more")) {
+            activity = "Write More";
+            target = "Writing"
+        } else if(msg.includes("Learn new things") || msg.includes("learn new things")) {
+            activity = "Learn new things";
+            target = "General Reference & Learning";
+        }
+        
+        if(activity.length==0) {
+            bot.postMessage(slackID, "no activity found. Write again.", {as_user:true});
+        } else {
+            console.log(`you want to spend ${num} minutes on ${activity}`);
+            
+            Apikey.findOne({slackID: slackID}).exec(function(err, user){
+                if(err){
+                    console.log(err);
+                }else{
+                    if(user) {
+                        var rescuetimeKey = user.rescuetime_key;
+                        var secs = 0;
+                        if(rescuetimeKey) {
+                            var url = "https://www.rescuetime.com/api/oauth/data"; 
+                            var d = new Date();
+                            axios.get(url, {
+                                params: {
+                                  access_token: rescuetimeKey,
+                                  restrict_begin: d.toISOString(),
+                                  restrict_end: d.toISOString(),
+                                  format: 'json' 
+                                }
+                              })
+                              .then(function (response) {
+                                ShortFocus.findOne({slackID:slackID, done:false}).exec(function(err, user){
+                                    if(err){
+                                        console.log("an error occured");
+                                    } else {
+                                        if(user) {
+                                            var msg = `You haven't finished your ${user.plans.get("num")} minutes on ${user.plans.get("activity")} yet!`;
+                                            bot.postMessage(slackID, msg, {as_user:true});
+                                        } else {
+                                            var data = response.data;    
+                                            for(var i=0; i<data.rows.length; i++) {
+                                                if(data.rows[i][4] == target) {
+                                                    console.log("!!!!!!! "+data.rows[i][3]+" "+data.rows[i][4]+" and seconds: "+data.rows[i][1]);
+                                                    secs += Number(data.rows[i][1]);
+                                                }   
+                                            }
+                                            
+                                            var plan = [["activity", activity], ["num", num]];
+                                            var rescuetimeStart = [["target", target], ["secs", secs]];
+                                
+                                            var newWShortFocus = new ShortFocus({
+                                                slackID: slackID,
+                                                plans: plan,
+                                                rescueTimeStart: rescuetimeStart,
+                                                done: false,
+                                            });
+                                            console.log("!!!!!! newShorFocus: ", newWShortFocus);
+                                            newWShortFocus.save()
+                                            .then(() => {
+                                                bot.postMessage(slackID, `Great! Focus ${num} minutes on ${activity}. I will remind you later :smile:`, {as_user:true});
+                                                setTimeout(function(){checkShortFocus(slackID);}, Number(num)*60*1000);
+                                            })
+                                                .catch((err) => {
+                                                    console.log(err);
+                                                    bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again", {as_user:true});
+                                                })
+                                        }
+                                    }
+                                });
+                                /*
+                                var data = response.data;    
+                                for(var i=0; i<data.rows.length; i++) {
+                                    if(data.rows[i][4] == target) {
+                                        secs += Number(data.rows[i][1]);
+                                    }   
+                                }
+                                console.log("!!! totoal seconds spend on "+target+" is "+secs);
+                                var plan = [["activity", activity], ["num", num]];
+                                var rescuetimeStart = [["target", target], ["secs", secs]];
+                                
+                                var newWShortFocus = new ShortFocus({
+                                    slackID: slackID,
+                                    plans: plan,
+                                    rescueTimeStart: rescuetimeStart,
+                                    done: false,
+                                });
+                                newWShortFocus.save()
+                                    .then(() => {
+                                        bot.postMessage(slackID, `Great! Focus ${num} minutes on ${activity}. I will remind you :smile:`, {as_user:true});
+                                        
+                                    })
+                                    .catch((err) => {
+                                        console.log(err);
+                                        bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again", {as_user:true});
+                                    })
+                                    */
+                              })
+                              .catch(function (error) {
+                                console.log("get rescuetime data error: ", error);
+                              });
+                        } else {
+                            bot.postMessage(slackID, "You didn't set up your RescueTime key!", {as_user:true});
+                            authenResuetime(slackID);
+                        }
+                    } else {
+                        bot.postMessage(slackID, "You didn't add your api key!", {as_user:true});
+                    }
+                }
+            });
+            
+        }
+    } else {
+        bot.postMessage(slackID, "no number found. Write again.", {as_user:true});
+    }
+}
 function authenticate(slackID){
     bot.postMessage(slackID, 'Please click the following button to activate your account' , {
     as_user:true,
@@ -735,6 +1010,53 @@ function requestResuetime(slackID){
             }
         }
     });
+}
+
+function shortFocus(slackID) {
+    var msg = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "Choose what you want to focus for the next few minutes"
+            },
+            "accessory": {
+                "type": "static_select",
+                "placeholder": {
+                    "type": "plain_text",
+                    "text": "Choose an activity",
+                    "emoji": true
+                },
+                "options": [
+                    {
+                        "text": {
+                            "type": "plain_text",
+                            "text": "Software Development",
+                            "emoji": true
+                        },
+                        "value": "value-0"
+                    },
+                    {
+                        "text": {
+                            "type": "plain_text",
+                            "text": "Write More",
+                            "emoji": true
+                        },
+                        "value": "value-1"
+                    },
+                    {
+                        "text": {
+                            "type": "plain_text",
+                            "text": "Learn new things",
+                            "emoji": true
+                        },
+                        "value": "value-2"
+                    }
+                ]
+            }
+        }
+    ];
+    bot.postMessage(slackID, "", {as_user:true, blocks:msg});    
 }
 
 function getMonday(d) {
