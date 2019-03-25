@@ -79,8 +79,8 @@ passport.use(new RescueTimeStrategy({
     scope: ['time_data', 'category_data', 'productivity_data', 'alert_data', 'highlight_data', 'focustime_data']
   },
   function(req, accessToken, refreshToken, profile, done) {
-    console.log("RescueTimeStrategy connect through button, accessToken, refreshToken, profile", accessToken, refreshToken, profile);
-    console.log("slackID:", req.query.state);
+    //console.log("RescueTimeStrategy connect through button, accessToken, refreshToken, profile", accessToken, refreshToken, profile);
+    //console.log("slackID:", req.query.state);
     Apikey.findOne({slackID: req.query.state}).exec(function(err, apikey){
         if(err){
             console.log(err);
@@ -118,14 +118,14 @@ passport.use(new SlackStrategy({
     scope: ['users:read', 'identity.basic']
   },
   (req, accessToken, refreshToken, profile, done) => {
-    console.log("Slack connect through button, accessToken, refreshToken, profile", accessToken, refreshToken, profile);
-    console.log("slackID:", req.query.state);
+    //console.log("Slack connect through button, accessToken, refreshToken, profile", accessToken, refreshToken, profile);
+    //console.log("slackID:", req.query.state);
     SlackKey.findOne({slackID: req.query.state}).exec(function(err, apikey){
         if(err){
             console.log(err);
             done(err, apikey);
         } else {
-            console.log("apikey, ", apikey);
+            //console.log("apikey, ", apikey);
             if(apikey){
                 var newApikey = apikey;
                 newApikey.access_token = accessToken;
@@ -135,7 +135,7 @@ passport.use(new SlackStrategy({
                     access_token: accessToken,
                 });
             }
-            console.log("newApikey, ", newApikey);
+            //console.log("newApikey, ", newApikey);
             newApikey.save()
             .then( () => {
                 done(err, newApikey);

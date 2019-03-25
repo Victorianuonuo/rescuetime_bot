@@ -55,7 +55,7 @@ router.get('/googlecalendar/connect/callback', function(req, res) {
             //with their oauth2client in order to get their email address which is then saved in the user object
             //in mongodb.
             oauth2Client.setCredentials(tokens);
-            console.log("this is tokens", tokens);
+            //console.log("this is tokens", tokens);
             var plus = google.plus('v1');
             plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, person){
                 if(err){
@@ -262,28 +262,6 @@ router.post('/', async function(req, res){
                 })
             res.send();
             }
-            /*
-            var newWeeklyPlan = new WeeklyPlan({
-                slackID: slackID,
-                week: week,
-                plans: submission
-            });
-            console.log(newWeeklyPlan);
-            newWeeklyPlan.save()
-                .then( () => {
-                    bot.postMessage(slackID, "Yay great job! You've successfully set your weekly goal. I will keep you on track :smile:", {as_user:true});
-                    })
-                .catch((err) => {
-                    console.log('error in new newWeeklyPlan api');
-                    console.log(err.errmsg);
-                    if(err.errmsg.includes("duplicate key error")){
-                        bot.postMessage(slackID, "Ooops!!! You have already set before!", {as_user:true});
-                    }else{
-                        bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again saying weeklyplan", {as_user:true});
-                    }
-                });
-            res.send();
-            */
         }
     } else if(data.type == "dialog_cancellation") {
         console.log("!!!!! user has cancel the dialog!!");
@@ -385,53 +363,6 @@ router.post('/', async function(req, res){
                     }
                 }
             });
-            /*
-            WeeklyPlan.findOne({slackID:slackID, week:week}).exec(function(err, user){
-                if(err){
-                    console.log(err);
-                } else {
-                    console.log("weeklyPlan", user);
-                    if(user){
-                        bot.postMessage(slackID, "Ooops! Seems that you have already set a plan for this week", {as_user:true});
-                    }else{
-                        var hourOptions = [];
-                        var focuses = [
-                            {"label": "Software Development", "value": "Software Development"},
-                            {"label": "Writing more", "value": "Writing more"},
-                            {"label": "Learning new things", "value": "Learning new things"}];
-                        for (var i = 30; i >= 0; i-=2) {
-                            hourOptions.push({"label":i.toString(), "value":i.toString()});
-                        }
-                        
-                        var requestData = {
-                            "trigger_id": data.trigger_id,
-                            "dialog": {
-                                "callback_id": "newplan_callback",
-                                "title": "New FOCUS for this week!",
-                                "submit_label": "Request",
-                                "notify_on_cancel": true,
-                                "state": "Limo",
-                                "elements": [
-                                    {
-                                        "label": "Select one thing you want to focus for this week",
-                                        "type": "select",
-                                        "name": "weekly_focus",
-                                        "options": focuses
-                                    },
-                                    {
-                                        "label": "Time you want to spend on this activity",
-                                        "type": "select",
-                                        "name": "focus_hours",
-                                        "options": hourOptions
-                                    }
-                                ],
-                            },
-                        };
-                        startDialog(requestData);
-                    }
-                }
-            });
-            */
         }
     };
 })

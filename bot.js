@@ -817,7 +817,6 @@ function checkShortFocus(slackID) {
 }
 function setShortFocus(slackID, message) {
     console.log("!!!!! message: ", message);
-    console.log("token: ", bot.token);
     var r = /\d+/;
     var msg = message.text;
     var match = msg.match(r);
@@ -986,7 +985,7 @@ function configThenList(user, auth, is_print=false){
 
 function listEvents(user, auth, config, is_print=false) {
     var today = (new Date()).getDay();
-    console.log(user, auth, config, is_print);
+    //console.log(user, auth, config, is_print);
     if(config.get_frequency()=='weekly' && today!=config.get_tickday()){
         is_print = false;
         console.log("today config.frequency not print",today, config.get_frequency());
@@ -1035,7 +1034,7 @@ function authenResuetime(slackID){
         if(err){
             console.log(err);
         } else {
-            console.log(user);
+            //console.log(user);
             if(!user){
                 bot.postMessage(slackID, 'Please click the following button to add rescuetime as a data source.' , {
                     as_user:true,
@@ -1065,7 +1064,7 @@ function authenSlack(slackID){
         if(err){
             console.log(err);
         } else {
-            console.log(user);
+            //console.log(user);
             if(!user){
                 bot.postMessage(slackID, 'Please click the following button to add Slack as a data source.' , {
                     as_user:true,
@@ -1094,7 +1093,7 @@ function requestResuetime(slackID){
         if(err){
             console.log(err);
         } else {
-            console.log(user);
+            //console.log(user);
             if(!user){
                 var requestData = {
                     as_user: true,
