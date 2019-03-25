@@ -73,7 +73,7 @@ var weeklyMultiPlanSchema = new Schema({
         required: true
     }
 });
-var shortFocus = new Schema({
+var shortFocusSchema = new Schema({
     slackID: {
         type: String,
         required: true,
@@ -81,19 +81,31 @@ var shortFocus = new Schema({
     },
     plans: {
         type: Map,
-        of: String,
-        index:true
+        of: String
     },
     rescueTimeStart: {
         type: Map,
-        of: String,
-        index:true
+        of: String
     },
     done: {
         type: Boolean,
         required: true,
     },
 });
+
+var shareLinkSchema = new Schema({
+    slackID: {
+        type: String,
+        required: true,
+        index: true
+    },
+    links: [String],
+    original_links: [String],
+    numbers: [String],
+    isDocxs: [Boolean],
+    progresses: [String],
+});
+
 var configUserSchema = new Schema({
     slackID: {
         type: String,
@@ -153,7 +165,8 @@ var WeeklyPlan = mongoose.model('WeeklyPlan', weeklyPlanSchema);
 var SlackKey = mongoose.model('SlackKey', slackKeySchema);
 var UserPresence = mongoose.model('UserPresence', userPresenceSchema);
 var WeeklyMultiPlan = mongoose.model('WeeklyMultiPlan', weeklyMultiPlanSchema);
-var ShortFocus = mongoose.model('ShortFocuse', shortFocus);
+var ShortFocus = mongoose.model('ShortFocuse', shortFocusSchema);
+var ShareLink = mongoose.model('ShareLink', shareLinkSchema);
 module.exports = {
     User: User,
     Apikey: Apikey,
@@ -162,5 +175,6 @@ module.exports = {
     SlackKey: SlackKey,
     UserPresence: UserPresence,
     WeeklyMultiPlan: WeeklyMultiPlan,
-    ShortFocus: ShortFocus
+    ShortFocus: ShortFocus,
+    ShareLink: ShareLink,
 };

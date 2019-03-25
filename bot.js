@@ -2,7 +2,7 @@ var SlackBot = require('slackbots');
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); // only when test bot.js
 const {google} = require('googleapis');
-var {User, Apikey, ConfigUser, WeeklyPlan, SlackKey, WeeklyMultiPlan, ShortFocus} = require('./models/models');
+var {User, Apikey, ConfigUser, WeeklyPlan, SlackKey, WeeklyMultiPlan, ShortFocus, ShareLink} = require('./models/models');
 var _ = require('underscore')
 var googleAuth = require('google-auth-library');
 var CronJob = require('cron').CronJob;
@@ -10,8 +10,10 @@ var Config = require('./config');
 var axios = require('axios');
 var is_greet = false;
 var {startDialog} = require('./routes/common');
-const uuidv4 = require('uuid/v4');
 const envKey = process.env.NUDGE_BOT_TOKEN;
+var superagent = require('superagent');
+var mammoth = require('mammoth');
+var word_count = require('word-count');
 mongoose.Promise = global.Promise;
 
 // create a bot
@@ -51,6 +53,58 @@ const startDailyReminder = function(){
         }
     });
     job.start();
+}
+
+const startShareLinksDaily = function(){
+    var job = new CronJob({
+        cronTime: '00 30 00 * * *',
+        onTick: function() {
+            console.log('startShareLinksDaily tick!');
+            shareLinksCheck();
+        }
+    });
+    job.start();
+}
+
+const startShareLinksDailyReport = function(){
+    var job = new CronJob({
+        cronTime: '00 15 07 * * *',
+        onTick: function() {
+            console.log('startShareLinksDailyReport tick!');
+            shareLinksDailyReport();
+        }
+    });
+    job.start();
+}
+
+function shareLinksDailyReport(trigger=null){
+    ShareLink.find({}, function(err, users) {
+        if(err){
+            console.log(err);
+        }else{
+            users.forEach(function(user) {
+                if(!trigger || trigger==user.slackID){
+                    console.log("shareLinksDailyReport for ", user);
+                    shareLinksDailyReport_users(user);
+                }
+            });
+        }
+    });
+}
+
+function shareLinksDaily(trigger=null){
+    ShareLink.find({}, function(err, users) {
+        if(err){
+            console.log(err);
+        }else{
+            users.forEach(function(user) {
+                if(!trigger || trigger==user.slackID){
+                    console.log("shareLinksCheck for ", user);
+                    shareLinksDaily_users(user);
+                }
+            });
+        }
+    });
 }
 
 function newPlan(slackID, message){
@@ -121,29 +175,6 @@ function dailyReminder(trigger=null){
             }
         }
     });
-    /*
-    WeeklyPlan.find({week:week}).exec(function(err, users){
-        if(err){
-            console.log(err);
-        }else{
-            //console.log("$$$$$get users: ", users); 
-            if(users && users.length > 0){
-                users.forEach(function(user) {
-                    if(!trigger || trigger==user.slackID){
-                        console.log("########daily reminder for ", user);
-                        dailyReport(user.slackID, user.week, user.plans);
-                    }
-                });
-            } else {
-                console.log("########## no plan this week");
-                if(trigger) {
-                    bot.postMessage(trigger, "You don't have any plan yet.", {as_user:true});
-                    newPlan(trigger);
-                }
-            }
-        }
-    });
-    */
 }
 
 function printWeeklyPlan(slackID, plans, last){
@@ -156,52 +187,6 @@ function printWeeklyPlan(slackID, plans, last){
     }},{
         "type": "divider"
     }];
-}
-
-function pastWeekPlan(slackID, plans, access_token){
-    var url = "https://www.rescuetime.com/api/oauth/daily_summary_feed?access_token="+access_token;
-    console.log("urlll: ", url);
-    console.log("pastWeekPlan plans, ", plans);
-    axios.get(url).then(function(response){
-        var datas = response.data.slice(0, 7);
-        const features = {"software_development":"software_development_hours", "writing":"design_and_composition_hours", "learning":"reference_and_learning_hours"};
-        var result = {"software_development_hours":0, "design_and_composition_hours":0, "reference_and_learning_hours":0, "productivity_pulse":0};
-        const all_features = {"software_development":"software_development_hours", "writing":"design_and_composition_hours", "learning":"reference_and_learning_hours", "productivity": "productivity_pulse"};
-        //console.log(datas[0]);
-        for(var feature in features){
-            for(var i=0;i<7;i++){
-                result[features[feature]] += datas[i][features[feature]];
-            }
-        }
-        for(var i=0;i<7;i++){
-            result["productivity_pulse"] += datas[i]["productivity_pulse"];
-        }
-        result["productivity_pulse"] /= 7.0;
-        console.log("result,", result);
-        printDailyReport(slackID, result, true);
-        setTimeout(function(){
-            const promises = Object.keys(all_features).map(function (feature, index) {
-                if(result[all_features[feature]]>=plans.get(feature)){
-                    bot.postMessage(slackID, "You did great in achieving your goal on "+feature+" last week.", {as_user:true});
-                    return 1;
-                }else{
-                    bot.postMessage(slackID, "You did not achieve your goal on "+feature+" last week.", {as_user:true});
-                    return 0;
-                }
-            });
-            Promise.all(promises).then(function (perfs) {
-                var num = perfs.reduce((a, b) => a + b, 0);
-                if(num==4){
-                    setTimeout(function(){bot.postMessage(slackID, "Congratulations! You achieved all your goals set last week. Keep on!", {as_user:true})}, 100);
-                }else{
-                    setTimeout(function(){bot.postMessage(slackID, "Ooops! You didn't achieve all the goals set last week. Make it this week!", {as_user:true})}, 100);
-                }
-            })
-        },200);
-    }).catch(function(err){
-        console.log("last week report err ", err);
-        bot.postMessage(slackID, "Sorry! Cannot read your last week's activity.", {as_user:true});
-    });
 }
 
 function printWeeklyReport(slackID) {
@@ -234,25 +219,6 @@ function printWeeklyReport(slackID) {
                     });
                 }
             }
-            /*
-            for (var i = 0; i < user_plans.length; i++) {
-                var plan = user_plans[i];
-                var text = ``;
-                if(plan.get("hour_spent") == "done") {
-                    achieved.push({
-                        "type": "plain_text",
-                        "text": `*${Number(plan.get("focus_hours")).toFixed(2)} hours on ${plan.get("weekly_focus")}*`,
-                        "emoji": true
-                    })
-                } else {
-                    not_achieved.push({
-                        "type": "plain_text",
-                        "text": `*${Number(plan.get("hour_spent")).toFixed(2)}/${Number(plan.get("focus_hours")).toFixed(2)} hours on ${plan.get("weekly_focus")}*`,
-                        "emoji": true
-                    })
-                }
-            }
-            */
             message.push({
                 "type": "section",
                 "text": {
@@ -525,6 +491,8 @@ bot.on('start', function() {
     }
     startDailyReminder();
     startWeeklyPlanner();
+    startShareLinksDailyReport();
+    startShareLinksDaily();
     //weeklyPlanner();
     //dailyReminder();
     //dailyCheck();
@@ -562,12 +530,11 @@ bot.on("message", message => {
                 if(err){
                     console.log(err);
                 } else {
-                    console.log(user);
+                    //console.log(user);
                     if(!user){
                         authenticate(slackID);
                     } else {
                         console.log("message,", message);
-                        //bot.postMessage(message.user, MESSAGE, {as_user:true});
                         if(message.text){
                             if(message.text.toLowerCase().includes('calendar')){
                                 oneTimeCheck(user, true);
@@ -589,6 +556,18 @@ bot.on("message", message => {
                                 //checkShortFocus(slackID);
                             }else if(message.text.includes("I want to spend")) {
                                 setShortFocus(slackID, message);
+                            }else if(message.text.includes("I want to write more")){
+                                getShareLink(slackID);
+                            }else if(message.text.includes("remove")){
+                                removeShareLink(slackID, message.text);
+                            }else if(message.text.includes("docs.google.com")||message.text.includes("www.dropbox.com")){
+                                storeShareLink(slackID, message.text);
+                            }else if(message.text.includes("shareLinksDailyReport")){
+                                shareLinksDailyReport(slackID);
+                            }else if(message.text.includes("shareLinksDaily")){
+                                shareLinksDaily(slackID);
+                            }else{
+                                bot.postMessage(message.user, MESSAGE, {as_user:true});
                             }
                         }
                     }
@@ -599,6 +578,173 @@ bot.on("message", message => {
     }
     
 });
+
+function removeShareLink(slackID, msg){
+    console.log(msg.split(" "));
+    const links = msg.split(" ");
+    var link = links[links.length-1];
+    if(link.startsWith("<")&&link.endsWith(">")){
+        link = link.substring(1, link.length-1);
+        console.log("removeShareLink", slackID, link);
+    }
+    console.log("removeShareLink,", link);
+    ShareLink.findOne({slackID:slackID}).exec(function(err, user){
+        if(err){
+            console.log(err);
+        }else{
+            if(user){
+                if(user.original_links.includes(link)){
+                    var idx = user.original_links.indexOf(link);
+                    user.links.splice(idx, 1);
+                    user.original_links.splice(idx, 1);
+                    user.progresses.splice(idx, 1);
+                    user.numbers.splice(idx, 1);
+                    user.isDocxs.splice(idx, 1);
+                    user.save().then(()=>{
+                        bot.postMessage(slackID, "successfully remove the link!", {as_user:true});
+                    }).catch(err=>{
+                        bot.postMessage(slackID, "Something wrong when remove the link! Please try again later!", {as_user:true});
+                        console.log("removeShareLink save error", err);
+                    });
+                }else{
+                    bot.postMessage(slackID, "Ooops! You haven't added the link so you cannot remove it.", {as_user:true});
+                }
+            }else{
+                bot.postMessage(slackID, "Ooops! You haven't added the link so you cannot remove it.", {as_user:true});
+            }
+
+        }
+    });
+}
+
+function shareLinksDaily_users(user){
+
+    var all_count_words = user.links.map(function(link, i){
+        return countWord(user.links[i], user.isDocxs[i]).then(function(number){
+            console.log("countWord", user.links[i]+" ", user.isDocxs[i]+" ", user.numbers[i]+" ", number+" ");
+            user.progresses[i] = parseInt(number, 10) - parseInt(user.numbers[i], 10);
+            user.numbers[i] = number;
+        });
+    });
+
+    Promise.all(all_count_words).then(data=>{
+        console.log("shareLinksDaily_users,,",user);
+        console.log(data);
+        user.markModified("progresses");
+        user.markModified("numbers");
+        user.save()
+            .then(() => {
+                console.log("shareLinksDaily_users successfully save ",user);
+            })
+            .catch((err) => {
+                console.log("newShareLink save error", err, user.slackID);
+            });
+    });
+}
+
+function shareLinksDailyReport_users(user){
+    var message = user.progresses.map(function(progress, idx){
+        return user.original_links[idx]+" "+progress;
+    });
+    bot.postMessage(user.slackID, "Your progress on your writing yesterday:\n"+message.join("\n"), {as_user: true});
+}
+
+async function countWord(url, isDocx){
+    const response = await superagent.get(url)
+                                     .parse(superagent.parse.image)
+                                     .buffer();
+    var buffer = response.body;
+    var text;
+    if(isDocx){
+        text = (await mammoth.extractRawText({ buffer })).value;
+    }else{
+        text = buffer.toString('utf8');
+    }
+    console.log(url, isDocx, word_count(text));
+    return word_count(text);
+}
+
+function addShareLink(slackID, link, msg, isDocx){
+    console.log("addShareLink", slackID, link, isDocx);
+    ShareLink.findOne({slackID:slackID}).exec(function(err, user){
+        if(err){
+            console.log(err);
+        }else{
+            if(user){
+                var newShareLink = user;
+            }else{
+                var newShareLink = new ShareLink({
+                    slackID: slackID
+                });
+            }
+            if(newShareLink.links.includes(link)){
+                bot.postMessage(slackID, "Links already exists!", {as_user:true});
+            }else{
+                countWord(link, isDocx).then(function(number){
+                    newShareLink.links.push(link);
+                    newShareLink.numbers.push(number);
+                    newShareLink.isDocxs.push(isDocx);
+                    newShareLink.progresses.push(0);
+                    newShareLink.original_links.push(msg);
+                    newShareLink.save()
+                                .then(() => {
+                                    bot.postMessage(slackID, "You've got "+number+" words now, keep writing! Will notify you about your progress every day!\nIf you don't want me to keep track of the doc, just type remove "+msg, {as_user:true});
+                                })
+                                .catch((err) => {
+                                    console.log("newShareLink save erro", err);
+                                    bot.postMessage(slackID, "Sorry! Couldn't read the link. Try again and make sure you paste all the link! If it still couldn't work, try to contact the researchers!", {as_user:true});
+                                })
+                }).catch(function(error){
+                    console.log("countWord error", error);
+                    bot.postMessage(slackID, "Sorry! Couldn't read the link. Try again and make sure you paste all the link! If it still couldn't work, try to contact the researchers!", {as_user:true});
+                });
+            }
+        }
+    });
+}
+
+function storeShareLink(slackID, msg){
+    console.log("storeShareLink", slackID, msg);
+    if(msg.startsWith("<")&&msg.endsWith(">")){
+        msg = msg.substring(1, msg.length-1);
+        console.log("storeShareLink", slackID, msg);
+    }
+    if(msg.includes("docs.google.com")){
+        var indexOf = msg.indexOf('/edit?usp=sharing');
+        var link = msg.substring(0,indexOf)+'/export?hl=en&exportFormat=txt';
+        addShareLink(slackID, link, msg, false);
+    }else if(msg.endsWith(".txt?dl=0")){
+        var link = msg.substring(0, msg.length-1)+'1';
+        addShareLink(slackID, link, msg, false);
+    }else if(msg.endsWith(".docx?dl=0")){
+        var link = msg.substring(0, msg.length-1)+'1';
+        addShareLink(slackID, link, msg, true);
+    }else{
+        console.log("match failed", msg);
+        bot.postMessage(slackID, "Sorry! Couldn't read the link. Try again and make sure you paste all the link! If it still couldn't work, try to contact the researchers!", {as_user:true});
+    }
+}
+
+function displayShareLink(slackID){
+    ShareLink.findOne({slackID:slackID}).exec(function(err, user){
+        if(err){
+            console.log(err);
+        }else{
+            //console.log("displayShareLink", user);
+            if(user&&user.links.length>0){
+                bot.postMessage(slackID, "You have set the following links!\n"+user.original_links.join("\n"), {as_user:true});  
+            }else{
+                bot.postMessage(slackID, "You haven't set any share links yet!", {as_user:true});  
+            }
+        }
+    });
+}
+
+function getShareLink(slackID){
+    displayShareLink(slackID);
+    bot.postMessage(slackID, "Send the share link to me which grants view access to everyone with the link if you want to add to the share docs I monitor", {as_user:true});
+}
+
 function checkShortFocus(slackID) {
     Apikey.findOne({slackID: slackID}).exec(function(err, user){
         if(err) {
@@ -754,33 +900,6 @@ function setShortFocus(slackID, message) {
                                         }
                                     }
                                 });
-                                /*
-                                var data = response.data;    
-                                for(var i=0; i<data.rows.length; i++) {
-                                    if(data.rows[i][4] == target) {
-                                        secs += Number(data.rows[i][1]);
-                                    }   
-                                }
-                                console.log("!!! totoal seconds spend on "+target+" is "+secs);
-                                var plan = [["activity", activity], ["num", num]];
-                                var rescuetimeStart = [["target", target], ["secs", secs]];
-                                
-                                var newWShortFocus = new ShortFocus({
-                                    slackID: slackID,
-                                    plans: plan,
-                                    rescueTimeStart: rescuetimeStart,
-                                    done: false,
-                                });
-                                newWShortFocus.save()
-                                    .then(() => {
-                                        bot.postMessage(slackID, `Great! Focus ${num} minutes on ${activity}. I will remind you :smile:`, {as_user:true});
-                                        
-                                    })
-                                    .catch((err) => {
-                                        console.log(err);
-                                        bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again", {as_user:true});
-                                    })
-                                    */
                               })
                               .catch(function (error) {
                                 console.log("get rescuetime data error: ", error);
