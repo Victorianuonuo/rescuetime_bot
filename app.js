@@ -17,19 +17,32 @@ setInterval(function() {
 }, 300000); // every 5 minutes (300000)
 //This is for the wake process, mongthly quoto limited
 
-setInterval(function() {
-    SlackKey.find({}, function(err, users) {
-        if(err){
-            console.log(err);
-        }else{
-            users.forEach(function(user) {
-                console.log("queryPresence for ", user.slackID);
-                queryPresenceForUser(user.slackID, user.access_token);
-            });
-        }
-    });
-}, 3600000); // every 60 minutes (3600000)
-//}, 60000); // every 1 minutes (60000)
+function execHourly(func){
+    var date = new Date();
+    var dateIntegralPoint = new Date();
+    dateIntegralPoint.setHours(date.getHours()+1);
+    dateIntegralPoint.setMinutes(0);
+    dateIntegralPoint.setSeconds(0);
+    setTimeout(func, dateIntegralPoint-date);
+}
+
+function queryPrecense(){
+    setInterval(function() {
+        SlackKey.find({}, function(err, users) {
+            if(err){
+                console.log(err);
+            }else{
+                users.forEach(function(user) {
+                    console.log("queryPresence for ", user.slackID);
+                    queryPresenceForUser(user.slackID, user.access_token);
+                });
+            }
+        });
+    }, 3600000); // every 60 minutes (3600000)
+    //}, 60000); // every 1 minutes (60000)
+}
+
+execHourly(queryPrecense);
 
 function queryPresenceForUser(slackID, access_token){
     var url = "https://slack.com/api/users.getPresence?token="+access_token+"&user="+slackID+"&pretty=1";
