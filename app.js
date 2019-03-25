@@ -38,8 +38,8 @@ function queryPresenceForUser(slackID, access_token){
             if(err){
                 console.log(err);
             } else {
-                console.log(user);
-                console.log("response,",response.data);
+                //console.log(user);
+                //console.log("response,",response.data);
                 var userPresence = user;
                 if(!userPresence){
                     userPresence = new UserPresence({
