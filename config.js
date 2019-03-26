@@ -56,7 +56,7 @@ var Config = function(usr, auth, is_print, callback){
                 console.log("Fail to load from ConfigUser, read from local file instead.");
                 configfile = require('./resources/config.json');
             }
-            console.log(configfile);
+            //console.log(configfile);
             configfile = json2func(configfile);
             callback(usr, auth, configfile, is_print);
         }

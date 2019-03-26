@@ -57,10 +57,10 @@ const startDailyReminder = function(){
 
 const startShareLinksDaily = function(){
     var job = new CronJob({
-        cronTime: '00 30 00 * * *',
+        cronTime: '00 01 00 * * *',
         onTick: function() {
             console.log('startShareLinksDaily tick!');
-            shareLinksCheck();
+            shareLinksDaily();
         }
     });
     job.start();
@@ -99,7 +99,7 @@ function shareLinksDaily(trigger=null){
         }else{
             users.forEach(function(user) {
                 if(!trigger || trigger==user.slackID){
-                    console.log("shareLinksCheck for ", user);
+                    console.log("shareLinksDaily for ", user);
                     shareLinksDaily_users(user);
                 }
             });
@@ -483,12 +483,13 @@ function dailyReport(slackID, week, plans){
 
 bot.on('start', function() {
     console.log('bot start!');
-    for (var i = 0; i <= 23; i++) {
-        var is_print=false;
-        if(i==7)
-          is_print=true;
-        startCronJob(("00" + i).slice(-2),is_print);
-    }
+    // for (var i = 0; i <= 23; i++) {
+    //     var is_print=false;
+    //     if(i==7)
+    //       is_print=true;
+    //     startCronJob(("00" + i).slice(-2),is_print);
+    // }
+    startCronJob("07",true);
     startDailyReminder();
     startWeeklyPlanner();
     startShareLinksDailyReport();
