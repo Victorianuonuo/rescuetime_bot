@@ -21,6 +21,7 @@ var bot = new SlackBot({
     token: envKey,
     name: 'nudgebot'
 });
+var {quickReactionTest, reactionMsg} = require('./quickReaction');
 
 const startCronJob = function(time, is_print=false){
     var job = new CronJob({
@@ -412,9 +413,11 @@ function dailyProgressEval(slackID, data, week) {
                 text = `You finish ${goal}!! Well done!!`;
                 imgUrl = "https://media.giphy.com/media/1ZDCyTHjA4fYYKJPRx/giphy.gif";
             }
+            var block_id = week? "weeklyReport":"dailyReminder";
             var val = [
                 {
                     "type": "section",
+                    "block_id": `${block_id}`,
                     "text": {
                         "type": "mrkdwn",
                         "text": `${text}`,
@@ -429,6 +432,9 @@ function dailyProgressEval(slackID, data, week) {
             WeeklyMultiPlan.updateOne({slackID: slackID, week:lastweek, done:false}, update)
             .then(function(res){
                 if(!week) {
+                    if(done) {
+                        val.push(...reactionMsg("How do you feel about ahieving your goal?"));
+                    }
                     bot.postMessage(slackID, '', {as_user:true, "blocks": val});
                     if(done) {
                         setTimeout(function(){newPlan(user.slackID, "Good job! Set a new goal!");}, 800);
@@ -567,7 +573,10 @@ bot.on("message", message => {
                                 shareLinksDailyReport(slackID);
                             }else if(message.text.includes("shareLinksDaily")){
                                 shareLinksDaily(slackID);
-                            }else{
+                            }else if(message.text.includes("quickReaction")) {
+                                quickReactionTest(bot, slackID);
+                            }
+                            else{
                                 bot.postMessage(message.user, MESSAGE, {as_user:true});
                             }
                         }
@@ -779,15 +788,42 @@ function checkShortFocus(slackID) {
                                     }   
                                 }
                                 var diff = secs - startSecs;
-                                console.log("$$$$$$ diff: ", diff);
+                                var message = [{
+                                    "type": "section",
+                                    "block_id": "shortFocus",
+                                    "text": {
+                                        "type": "mrkdwn",
+                                        "text": "_*Short Focus*_"
+                                    }
+                                }, {
+                                    "type": "divider"
+                                }];
                                 if(diff >= targetSecs) {
-                                    var msg = `Congrats! You decide to spend *${user.plans.get("num")} minutes* on *${user.plans.get("activity")}* and you did it!:smile:`;
-                                    bot.postMessage(slackID, msg, {as_user:true});
+                                    message.push({
+                                        "type": "section",
+                                        "text": {
+                                            "type": "mrkdwn",
+                                            "text": `Congrats! You decide to spend *${user.plans.get("num")} minutes* on *${user.plans.get("activity")}* and you did it!:smile:`
+                                        }
+                                    });
+                                    //var msg = `Congrats! You decide to spend *${user.plans.get("num")} minutes* on *${user.plans.get("activity")}* and you did it!:smile:`;
+                                    //bot.postMessage(slackID, msg, {as_user:true});
+                                    //bot.postMessage(slackID, "", {as_user:true, blocks:message});
                                 } else {
-                                    var msg = `Oops! You decide to spend *${user.plans.get("num")} minutes* on *${user.plans.get("activity")}* and it seems you didn't focus too much on it:cry:`;
-                                    bot.postMessage(slackID, msg, {as_user:true});
+                                    message.push({
+                                        "type": "section",
+                                        "text": {
+                                            "type": "mrkdwn",
+                                            "text": `Oops! You decide to spend *${user.plans.get("num")} minutes* on *${user.plans.get("activity")}* and it seems you didn't focus too much on it:cry:`
+                                        }
+                                    });
+                                    //var msg = `Oops! You decide to spend *${user.plans.get("num")} minutes* on *${user.plans.get("activity")}* and it seems you didn't focus too much on it:cry:`;
+                                    //bot.postMessage(slackID, msg, {as_user:true});
                                 }
-                                
+                                var reaction = reactionMsg("How do you feel after short focus?");
+                                message.push(...reaction);
+                                bot.postMessage(slackID, "", {as_user:true, blocks:message});
+
                                 var update = {
                                     $set: {
                                       "done": true
