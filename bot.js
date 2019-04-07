@@ -9,6 +9,7 @@ var CronJob = require('cron').CronJob;
 var Config = require('./config');
 var axios = require('axios');
 var is_greet = false;
+var request = require('request');
 var {startDialog} = require('./routes/common');
 const envKey = process.env.NUDGE_BOT_TOKEN;
 var superagent = require('superagent');
@@ -83,12 +84,16 @@ function shareLinksDailyReport(trigger=null){
         if(err){
             console.log(err);
         }else{
-            users.forEach(function(user) {
-                if(!trigger || trigger==user.slackID){
-                    console.log("shareLinksDailyReport for ", user);
-                    shareLinksDailyReport_users(user);
+            var users_map = {};
+            for(var i=0;i<users.length;i++){
+                if(!trigger || trigger==users[i].slackID){
+                    users_map[users[i].slackID] = users_map[users[i].slackID]||[];
+                    users_map[users[i].slackID].push(users[i]);
                 }
-            });
+            }
+            for(var user in users_map){
+                shareLinksDailyReport_users(users_map[user]);
+            }
         }
     });
 }
@@ -98,12 +103,17 @@ function shareLinksDaily(trigger=null){
         if(err){
             console.log(err);
         }else{
-            users.forEach(function(user) {
-                if(!trigger || trigger==user.slackID){
-                    console.log("shareLinksDaily for ", user);
-                    shareLinksDaily_users(user);
+            var users_map = {};
+            for(var i=0;i<users.length;i++){
+                if(!trigger || trigger==users[i].slackID){
+                    users_map[users[i].slackID] = users_map[users[i].slackID]||[];
+                    users_map[users[i].slackID].push(users[i]);
                 }
-            });
+            }
+            //console.log("users_map", users_map);
+            for(var user in users_map){
+                shareLinksDaily_users(users_map[user]);
+            }
         }
     });
 }
@@ -567,7 +577,7 @@ bot.on("message", message => {
                                 getShareLink(slackID);
                             }else if(message.text.includes("remove")){
                                 removeShareLink(slackID, message.text);
-                            }else if(message.text.includes("docs.google.com")||message.text.includes("www.dropbox.com")){
+                            }else if(message.text.includes("docs.google.com")||message.text.includes("www.dropbox.com")||message.text.includes("www.overleaf.com")){
                                 storeShareLink(slackID, message.text);
                             }else if(message.text.includes("shareLinksDailyReport")){
                                 shareLinksDailyReport(slackID);
@@ -598,27 +608,17 @@ function removeShareLink(slackID, msg){
         console.log("removeShareLink", slackID, link);
     }
     console.log("removeShareLink,", link);
-    ShareLink.findOne({slackID:slackID}).exec(function(err, user){
+    ShareLink.findOne({slackID:slackID, original_link:link}).exec(function(err, user){
         if(err){
             console.log(err);
         }else{
             if(user){
-                if(user.original_links.includes(link)){
-                    var idx = user.original_links.indexOf(link);
-                    user.links.splice(idx, 1);
-                    user.original_links.splice(idx, 1);
-                    user.progresses.splice(idx, 1);
-                    user.numbers.splice(idx, 1);
-                    user.isDocxs.splice(idx, 1);
-                    user.save().then(()=>{
+                user.remove().then(()=>{
                         bot.postMessage(slackID, "successfully remove the link!", {as_user:true});
                     }).catch(err=>{
                         bot.postMessage(slackID, "Something wrong when remove the link! Please try again later!", {as_user:true});
                         console.log("removeShareLink save error", err);
                     });
-                }else{
-                    bot.postMessage(slackID, "Ooops! You haven't added the link so you cannot remove it.", {as_user:true});
-                }
             }else{
                 bot.postMessage(slackID, "Ooops! You haven't added the link so you cannot remove it.", {as_user:true});
             }
@@ -627,84 +627,184 @@ function removeShareLink(slackID, msg){
     });
 }
 
-function shareLinksDaily_users(user){
+function updateProgress(number, params){
+    console.log("updateProgress params", params);
+    var user = params.user, i=params.i;
+    console.log("updateProgress", user.link+" ", user.isDocx+" ", user.number+" ", number+" ");
+    user.progress = parseInt(number, 10) - parseInt(user.number, 10);
+    user.number = number;
+    user.save()
+        .then(() => {
+            console.log(number+" words now", user.original_link);
+        })
+        .catch((err) => {
+            console.log("newShareLink save erro in updateProgress", err);
+        })
+}
 
-    var all_count_words = user.links.map(function(link, i){
-        return countWord(user.links[i], user.isDocxs[i]).then(function(number){
-            console.log("countWord", user.links[i]+" ", user.isDocxs[i]+" ", user.numbers[i]+" ", number+" ");
-            user.progresses[i] = parseInt(number, 10) - parseInt(user.numbers[i], 10);
-            user.numbers[i] = number;
+function shareLinksDaily_users(users){
+
+    users.forEach(function(user){
+        countWord({user:user, link:user.link, isDocx:user.isDocx}, updateProgress);
+    });
+
+    // var all_count_words = users.map(function(link, i){
+    //     console.log("shareLinksDaily_users",user.isDocxs[i],user.isDocxs[i]==2);
+    //     return 
+    //     // return countWord(user.links[i], user.isDocxs[i]).then(function(number){
+    //     //     console.log("countWord", user.links[i]+" ", user.isDocxs[i]+" ", user.numbers[i]+" ", number+" ");
+    //     //     user.progresses[i] = parseInt(number, 10) - parseInt(user.numbers[i], 10);
+    //     //     user.numbers[i] = number;
+    //     // });
+    // });
+
+    // Promise.all(all_count_words).then(data=>{
+    //     console.log("shareLinksDaily_users,,",user);
+    //     console.log(data);
+    //     user.markModified("progresses");
+    //     user.markModified("numbers");
+    //     user.save()
+    //         .then(() => {
+    //             console.log("shareLinksDaily_users successfully save ",user);
+    //         })
+    //         .catch((err) => {
+    //             console.log("newShareLink save error", err, user.slackID);
+    //         });
+    // });
+}
+
+function shareLinksDailyReport_users(users){
+    var message = users.map(function(user, idx){
+        return user.original_link+" "+user.progress;
+    });
+    bot.postMessage(users[0].slackID, "Your progress on your writing yesterday:\n"+message.join("\n"), {as_user: true});
+}
+
+var streamToString = function(stream, callback) {
+  var str = '';
+  stream.on('data', function(chunk) {
+    str += chunk;
+  });
+  stream.on('end', function() {
+    callback(str);
+  });
+}
+
+function promisify(api) {
+  return function(...args) {
+    return new Promise(function(resolve, reject) {
+      api(...args, function(err, response) {
+        if (err) return reject(err);
+        resolve(response);
+      });
+    });
+  };
+}
+
+var yauzl = require("yauzl");
+var yauzlFromBuffer = promisify(yauzl.fromBuffer);
+
+async function unzipBuffer(simpleZipBuffer, params, callback){
+  //var newShareLink=params.newShareLink, slackID=params.slackID, url=params.url, msg=params.msg, isDocx=params.isDocx;
+  let zipfile = await yauzlFromBuffer(simpleZipBuffer, {lazyEntries: true});
+  console.log("number of entries:", zipfile.entryCount);
+  let openReadStream = promisify(zipfile.openReadStream.bind(zipfile));
+  var stringOfStream = "";
+  zipfile.readEntry();
+  zipfile.on("entry", async (entry) => {
+    console.log("found entry:", entry.fileName);
+    let stream = await openReadStream(entry);
+    stream.on("end", () => {
+      zipfile.readEntry();
+    });
+    streamToString(stream, function(myStr) {
+          console.log('streamToString',myStr);
+          stringOfStream+=myStr+" ";
+    });
+  });
+  zipfile.on("end", () => {
+    console.log("end of entries");
+    console.log(stringOfStream);
+    callback(word_count(stringOfStream), params);
+  });
+};
+
+async function countWord(params, callback){
+    var url=params.link,
+        isDocx=params.isDocx;
+    console.log("params",params);
+    if(isDocx==2){
+        var headers = {
+            "connection" : "keep-alive",
+            "cache-control" : "max-age=0",
+            "upgrade-insecure-requests" : "1",
+            "user-agent" : "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36",
+            "DNT" : "1",
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3",
+            "accept-encoding": "gzip, deflate, br",
+            "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+            "Cookie": "_ga=GA1.2.959972475.1549510933; SERVERID=sl-lin-prod-web-19; sixpack-clientId=5c099c8390a3462b80c6c291; _gid=GA1.2.1088277405.1554592988; overleaf_session=s%3AvFLgsC1QBnwkQhexfwL1kru3kDgjBNiC.1iU%2FI8RIGypXop4uETgvxGpPpTNxOTqGcnwy%2BICWpKc",
+        };
+
+        var options = {
+            url: url,
+            headers: headers,
+            followRedirects: true,
+            encoding: null,
+        };
+        request.get(options, (err, res, body) => {
+            if(err){
+                console.log(err);
+            }else{
+                unzipBuffer(body, params, callback);
+            }
         });
-    });
 
-    Promise.all(all_count_words).then(data=>{
-        console.log("shareLinksDaily_users,,",user);
-        console.log(data);
-        user.markModified("progresses");
-        user.markModified("numbers");
-        user.save()
-            .then(() => {
-                console.log("shareLinksDaily_users successfully save ",user);
-            })
-            .catch((err) => {
-                console.log("newShareLink save error", err, user.slackID);
-            });
-    });
-}
-
-function shareLinksDailyReport_users(user){
-    var message = user.progresses.map(function(progress, idx){
-        return user.original_links[idx]+" "+progress;
-    });
-    bot.postMessage(user.slackID, "Your progress on your writing yesterday:\n"+message.join("\n"), {as_user: true});
-}
-
-async function countWord(url, isDocx){
-    const response = await superagent.get(url)
+    }else{
+        const response = await superagent.get(url)
                                      .parse(superagent.parse.image)
                                      .buffer();
-    var buffer = response.body;
-    var text;
-    if(isDocx){
-        text = (await mammoth.extractRawText({ buffer })).value;
-    }else{
-        text = buffer.toString('utf8');
+        var buffer = response.body;
+        var text;
+        if(isDocx==1){
+            text = (await mammoth.extractRawText({ buffer })).value;
+        }else if(isDocx==0){
+            text = buffer.toString('utf8');
+        }
+        callback(word_count(text), params);
     }
-    console.log(url, isDocx, word_count(text));
-    return word_count(text);
+}
+
+function addToDB(number, params){
+    var newShareLink=params.newShareLink, slackID=params.slackID, msg=params.msg;
+    newShareLink.number=number;
+    newShareLink.progress=0;
+    newShareLink.save()
+                .then(() => {
+                    bot.postMessage(slackID, "You've got "+number+" words now, keep writing! Will notify you about your progress every day!\nIf you don't want me to keep track of the doc, just type remove "+msg, {as_user:true});
+                })
+                .catch((err) => {
+                    console.log("newShareLink save erro", err);
+                    bot.postMessage(slackID, "Sorry! Couldn't read the link. Try again and make sure you paste all the link! If it still couldn't work, try to contact the researchers!", {as_user:true});
+                })
 }
 
 function addShareLink(slackID, link, msg, isDocx){
     console.log("addShareLink", slackID, link, isDocx);
-    ShareLink.findOne({slackID:slackID}).exec(function(err, user){
+    ShareLink.findOne({slackID:slackID, original_link:msg}).exec(function(err, user){
         if(err){
             console.log(err);
         }else{
             if(user){
-                var newShareLink = user;
-            }else{
-                var newShareLink = new ShareLink({
-                    slackID: slackID
-                });
-            }
-            if(newShareLink.links.includes(link)){
                 bot.postMessage(slackID, "Links already exists!", {as_user:true});
             }else{
-                countWord(link, isDocx).then(function(number){
-                    newShareLink.links.push(link);
-                    newShareLink.numbers.push(number);
-                    newShareLink.isDocxs.push(isDocx);
-                    newShareLink.progresses.push(0);
-                    newShareLink.original_links.push(msg);
-                    newShareLink.save()
-                                .then(() => {
-                                    bot.postMessage(slackID, "You've got "+number+" words now, keep writing! Will notify you about your progress every day!\nIf you don't want me to keep track of the doc, just type remove "+msg, {as_user:true});
-                                })
-                                .catch((err) => {
-                                    console.log("newShareLink save erro", err);
-                                    bot.postMessage(slackID, "Sorry! Couldn't read the link. Try again and make sure you paste all the link! If it still couldn't work, try to contact the researchers!", {as_user:true});
-                                })
-                }).catch(function(error){
+                var newShareLink = new ShareLink({
+                    slackID: slackID,
+                    original_link:msg,
+                    link: link,
+                    isDocx: isDocx
+                });
+                countWord({newShareLink:newShareLink, slackID:slackID, link:link, msg:msg, isDocx:isDocx}, addToDB).catch(function(error){
                     console.log("countWord error", error);
                     bot.postMessage(slackID, "Sorry! Couldn't read the link. Try again and make sure you paste all the link! If it still couldn't work, try to contact the researchers!", {as_user:true});
                 });
@@ -722,13 +822,17 @@ function storeShareLink(slackID, msg){
     if(msg.includes("docs.google.com")){
         var indexOf = msg.indexOf('/edit?usp=sharing');
         var link = msg.substring(0,indexOf)+'/export?hl=en&exportFormat=txt';
-        addShareLink(slackID, link, msg, false);
-    }else if(msg.endsWith(".txt?dl=0")){
+        addShareLink(slackID, link, msg, 0);
+    }else if(msg.includes('www.overleaf.com')){
+        var link = msg+'/download/zip';
+        addShareLink(slackID, link, msg, 2);
+    }
+    else if(msg.endsWith(".txt?dl=0")){
         var link = msg.substring(0, msg.length-1)+'1';
-        addShareLink(slackID, link, msg, false);
+        addShareLink(slackID, link, msg, 0);
     }else if(msg.endsWith(".docx?dl=0")){
         var link = msg.substring(0, msg.length-1)+'1';
-        addShareLink(slackID, link, msg, true);
+        addShareLink(slackID, link, msg, 1);
     }else{
         console.log("match failed", msg);
         bot.postMessage(slackID, "Sorry! Couldn't read the link. Try again and make sure you paste all the link! If it still couldn't work, try to contact the researchers!", {as_user:true});
@@ -736,13 +840,14 @@ function storeShareLink(slackID, msg){
 }
 
 function displayShareLink(slackID){
-    ShareLink.findOne({slackID:slackID}).exec(function(err, user){
+    ShareLink.find({slackID:slackID}).exec(function(err, users){
         if(err){
             console.log(err);
         }else{
             //console.log("displayShareLink", user);
-            if(user&&user.links.length>0){
-                bot.postMessage(slackID, "You have set the following links!\n"+user.original_links.join("\n"), {as_user:true});  
+            if(users&&users.length>0){
+                const original_links = users.map(user=>user.original_link);
+                bot.postMessage(slackID, "You have set the following links!\n"+original_links.join("\n"), {as_user:true});  
             }else{
                 bot.postMessage(slackID, "You haven't set any share links yet!", {as_user:true});  
             }

@@ -105,12 +105,17 @@ var shareLinkSchema = new Schema({
         required: true,
         index: true
     },
-    links: [String],
-    original_links: [String],
-    numbers: [String],
-    isDocxs: [Boolean],
-    progresses: [String],
+    original_link: {
+        type: String,
+        required: true,
+        index: true
+    },
+    link: String,
+    number: String,
+    isDocx: Number,
+    progress: Number,
 });
+shareLinkSchema.index({ slackID: 1, original_link: 1 }, { unique: true });
 
 var configUserSchema = new Schema({
     slackID: {
