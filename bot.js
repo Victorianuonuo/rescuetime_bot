@@ -718,13 +718,15 @@ async function unzipBuffer(simpleZipBuffer, params, callback){
       zipfile.readEntry();
     });
     streamToString(stream, function(myStr) {
-          console.log('streamToString',myStr);
-          stringOfStream+=myStr+" ";
+          //console.log('streamToString',myStr);
+          if(entry.fileName.endsWith('.tex')){
+            stringOfStream+=myStr+" ";
+          }
     });
   });
   zipfile.on("end", () => {
     console.log("end of entries");
-    console.log(stringOfStream);
+    //console.log(stringOfStream);
     callback(word_count(stringOfStream), params);
   });
 };
