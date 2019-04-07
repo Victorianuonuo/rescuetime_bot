@@ -71,6 +71,9 @@ var weeklyMultiPlanSchema = new Schema({
     done: {
         type: Boolean,
         required: true
+    },
+    reaction: {
+        type: String
     }
 });
 var shortFocusSchema = new Schema({
@@ -91,6 +94,9 @@ var shortFocusSchema = new Schema({
         type: Boolean,
         required: true,
     },
+    reaction: {
+        type: String
+    }
 });
 
 var shareLinkSchema = new Schema({

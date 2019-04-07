@@ -11,7 +11,7 @@ const {google} = require('googleapis');
 var googleAuth = require('google-auth-library');
 var CLIENT_ID = process.env.CLIENT_ID;
 var CLIENT_SECRET = process.env.CLIENT_SECRET;
-
+var {updateMessage} = require('../quickReaction');
 var {startDialog} = require('./common');
 
 router.get('/googlecalendar/oauth', function(req, res){
@@ -267,9 +267,12 @@ router.post('/', async function(req, res){
         console.log("!!!!! user has cancel the dialog!!");
         console.log(data);
     } else if(data.type == "block_actions") {
-        if(data.actions[0].placeholder.text == "Choose an activity") {
+        if(data.actions[0].placeholder && data.actions[0].placeholder.text == "Choose an activity") {
             var activity = data.actions[0].selected_option.text.text;
             bot.postMessage(slackID, `Tell me how long you want to spend on ${activity}? \n Say *I want to spend XX minutes on ${activity}* to me`, {as_user:true});
+        }
+        else if(data.actions[0].value && data.actions[0].value=="quick_reaction") {
+            updateMessage(bot, data);
         }
         /*
         if(data.actions[0].placeholder=="Choose an activity") {
