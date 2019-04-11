@@ -15,6 +15,7 @@ const envKey = process.env.NUDGE_BOT_TOKEN;
 var superagent = require('superagent');
 var mammoth = require('mammoth');
 var word_count = require('word-count');
+const pdf_parse = require('pdf-parse');
 mongoose.Promise = global.Promise;
 
 // create a bot
@@ -758,7 +759,10 @@ async function countWord(params, callback){
             if(err){
                 console.log(err);
             }else{
-                unzipBuffer(body, params, callback);
+                pdf_parse(body).then(function(data) {
+                    text = data.text;
+                    callback(word_count(text), params);
+                });
             }
         });
 
@@ -826,7 +830,7 @@ function storeShareLink(slackID, msg){
         var link = msg.substring(0,indexOf)+'/export?hl=en&exportFormat=txt';
         addShareLink(slackID, link, msg, 0);
     }else if(msg.includes('www.overleaf.com')){
-        var link = msg+'/download/zip';
+        var link = msg+'/output/output.pdf?compileGroup=standard&clsiserverid=clsi-pre-emp-w4bt&popupDownload=true';
         addShareLink(slackID, link, msg, 2);
     }
     else if(msg.endsWith(".txt?dl=0")){
