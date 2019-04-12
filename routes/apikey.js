@@ -3,7 +3,7 @@ var express = require('express');
 var router = express.Router();
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); 
-var {User, Apikey, ConfigUser, WeeklyPlan, WeeklyMultiPlan} = require('../models/models');
+var {User, Apikey, ConfigUser, WeeklyPlan, WeeklyMultiPlan, DistractionsDelay} = require('../models/models');
 var {bot, getMonday, authenResuetime} = require('../bot');
 var {verifyJson} = require('./common');
 var passport = require('passport');
@@ -188,8 +188,6 @@ router.post('/', async function(req, res){
                 if(user_ids.includes(submission.slackID)){
                     console.log("slackID in,", submission.slackID);
                     is_user = true;
-                    //res.status(200).json({"errors":[{"name": "slackID", "error": "Ooops!!! Invalid slackID. Please input the right slackID or all for all users to change the config file"}]});
-                    //return;
                 }
                 console.log("is_user, ", is_user);
                 if(!is_user){
@@ -316,6 +314,42 @@ router.post('/', async function(req, res){
         }else if(data.actions[0].name == "rescuetime_api_key_no"){
             bot.postMessage(slackID, "So sorry that you said no to add rescuetime. Maybe you would change your mind later.", {as_user:true});
             //res.send("So sorry that you said no to add rescuetime. Maybe you would change your mind later. When you are ready, try agin by saying rescuetime to me and input the right key.");
+        }else if(["distraction_delay_30", "distraction_delay_60", "distraction_delay_90", "distraction_delay_120", "distraction_delay_later"].includes(data.actions[0].name)){
+            var value = Number(data.actions[0].value);
+            var d = new Date();
+            var date = d.toISOString().split('T')[0];
+            var ts = new Date(data.message_ts * 1000).toISOString().split('T')[0];
+            console.log("date ts d message_ts", date, ts, d, data.message_ts);
+            if(date==ts){
+                DistractionsDelay.findOne({slackID:slackID, date:date}).exec(function(err, user){
+                    if(user&&Number(data.message_ts)>=user.ts){
+                        if(value>0){
+                            user.time_left += value;
+                            user.ts = Math.round(new Date().getTime()/1000);
+                            user.save()
+                            .then(() => {
+                                console.log("newDistractionsDelay user save for ", slackID);
+                                console.log(user);
+                                bot.postMessage(slackID, "Ok! You can spend "+value+" minutes more on distractions.", {as_user:true});
+                            })
+                            .catch((err) => {
+                                console.log("newDistractionsDelay user save for "+slackID, err);
+                                bot.postMessage(slackID, "Ooops! Something wrong with button! Please try again later!", {as_user:true});
+                            });
+                        }else{
+                            bot.postMessage(slackID, "Ok! I will reminde you 30 minutes later!", {as_user:true});
+                        }
+                    }else{
+                        console.log("update value failed in distraction_delay user message_ts", user, data.message_ts);
+                        if(user){
+                            bot.postMessage(slackID, "Ooops! Don't click on the previous button!", {as_user:true});
+                        }
+                    }
+                });
+            }else{
+                console.log("not equal date ts", date, ts, d, data.message_ts);
+                bot.postMessage(slackID, "Ooops! Don't click on the previous button!", {as_user:true});
+            }
         }else if(data.actions[0].name == "new_plan_button"){
             var week = getMonday(new Date()).toDateString();
             

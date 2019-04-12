@@ -2,7 +2,7 @@ var SlackBot = require('slackbots');
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); // only when test bot.js
 const {google} = require('googleapis');
-var {User, Apikey, ConfigUser, WeeklyPlan, SlackKey, WeeklyMultiPlan, ShortFocus, ShareLink} = require('./models/models');
+var {User, Apikey, ConfigUser, WeeklyPlan, SlackKey, WeeklyMultiPlan, ShortFocus, ShareLink, DistractionsDelay} = require('./models/models');
 var _ = require('underscore')
 var googleAuth = require('google-auth-library');
 var CronJob = require('cron').CronJob;
@@ -31,6 +31,17 @@ const startCronJob = function(time, is_print=false){
         onTick: function() {
             console.log('startCronJob tick!');
             dailyCheck(is_print);
+        }
+    });
+    job.start();
+}
+
+const startDistractionCheck = function(){
+    var job = new CronJob({
+        cronTime: '00 1,31 * * * *',
+        onTick: function() {
+            console.log('startDistractionCheck tick!');
+            distractionCheck();
         }
     });
     job.start();
@@ -78,6 +89,128 @@ const startShareLinksDailyReport = function(){
         }
     });
     job.start();
+}
+
+function distractionCheck(trigger=null){
+    Apikey.find({}, function(err, users) {
+        if(err){
+            console.log(err);
+        }else{
+            for(var i=0;i<users.length;i++){
+                if(!trigger || trigger==users[i].slackID){
+                   distractionCheck_users(users[i], trigger==users[i].slackID);
+                }
+            }
+        }
+    });
+}
+
+function distractionCheck_users(rescuetime_user, trigger=false){
+    var rescuetimeKey = rescuetime_user.rescuetime_key;
+    var d = new Date();
+    var date = d.toISOString().split('T')[0];
+    console.log('distractionCheck_users', date);
+    if(rescuetimeKey) {
+        var url = "https://www.rescuetime.com/api/oauth/data";
+        var secs = 0;
+        DistractionsDelay.findOne({slackID:rescuetime_user.slackID, date:date}).exec(function(err, user){
+            axios.get(url, {
+                    params: {
+                        access_token: rescuetimeKey,
+                        // restrict_begin: date,
+                        // restrict_end: date,
+                        format: 'json' ,
+                        perspective: 'interval',
+                        resolution_time: 'hour',
+                    }
+                })
+                .then(function(res){
+                    var data = res.data;
+                    for(var i=0; i<data.rows.length; i++) {
+                        if(data.rows[i][5] < 0) {
+                            secs += Number(data.rows[i][1]);
+                        }
+                    }
+                    var past_secs = 0;
+                    var newDistractionsDelay = user;
+                    if(user){
+                        past_secs = user.time_spend+user.time_left;
+                        user.time_spend = secs;
+                        user.time_left = past_secs-secs;
+                        user.ts = Math.round(new Date().getTime()/1000)-3
+                    }else{
+                        newDistractionsDelay = new DistractionsDelay({
+                            slackID: rescuetime_user.slackID,
+                            date: date,
+                            time_left: 0,
+                            time_spend: secs,
+                            ts: Math.round(new Date().getTime()/1000)-3
+                        });
+                    }
+                    newDistractionsDelay.save()
+                    .then(() => {
+                        console.log("newDistractionsDelay save for ", rescuetime_user.slackID);
+                        console.log(newDistractionsDelay);
+                    })
+                    .catch((err) => {
+                        console.log("newDistractionsDelay save for "+rescuetime_user.slackID, err);
+                    });
+                    if(secs>2*60*60||trigger){
+                        if(!past_secs || secs>past_secs){
+                            var requestData = {
+                                as_user: true,
+                                "text": "You have spent "+(secs/60).toFixed(2)+" minutes on distractions today! Would you like to spend more time on it or let me remind you later?",
+                                "attachments": [
+                                {
+                                    "text": "",
+                                    "fallback": "You are unable to choose a distraction option",
+                                    "callback_id": "distraction_delay",
+                                    "color": "#3AA3E3",
+                                    "attachment_type": "default",
+                                    "actions": [
+                                    {
+                                        "name": "distraction_delay_30",
+                                        "text": "Spend another 30 minutes",
+                                        "type": "button",
+                                        "value": "30"
+                                    },
+                                    {
+                                        "name": "distraction_delay_60",
+                                        "text": "Spend another 60 minutes",
+                                        "type": "button",
+                                        "value": "60"
+                                    },
+                                    {
+                                        "name": "distraction_delay_90",
+                                        "text": "Spend another 90 minutes",
+                                        "type": "button",
+                                        "value": "90"
+                                    },
+                                    {
+                                        "name": "distraction_delay_120",
+                                        "text": "Spend another 120 minutes",
+                                        "type": "button",
+                                        "value": "120"
+                                    },
+                                    {
+                                        "name": "distraction_delay_later",
+                                        "text": "Remind me later",
+                                        "type": "button",
+                                        "value": "-1"
+                                    },
+                                    ]
+                                }
+                                ],
+                            };
+                            bot.postMessage(rescuetime_user.slackID,"",requestData);
+                        }
+                    }
+                })
+                .catch(function(err){
+                    console.log("an error occured");
+                });
+        });
+    }
 }
 
 function shareLinksDailyReport(trigger=null){
@@ -511,6 +644,7 @@ bot.on('start', function() {
     startWeeklyPlanner();
     startShareLinksDailyReport();
     startShareLinksDaily();
+    startDistractionCheck();
     //weeklyPlanner();
     //dailyReminder();
     //dailyCheck();
@@ -586,6 +720,8 @@ bot.on("message", message => {
                                 shareLinksDaily(slackID);
                             }else if(message.text.includes("quickReaction")) {
                                 quickReactionTest(bot, slackID);
+                            }else if(message.text.includes('distractionCheck')){
+                                distractionCheck(slackID);
                             }
                             else{
                                 bot.postMessage(message.user, MESSAGE, {as_user:true});
@@ -762,6 +898,11 @@ async function countWord(params, callback){
                 pdf_parse(body).then(function(data) {
                     text = data.text;
                     callback(word_count(text), params);
+                }).catch((err)=>{
+                    console.log('countWord error', err);
+                    console.log(url);
+                    console.log(res);
+                    console.log(body);
                 });
             }
         });
@@ -880,7 +1021,7 @@ function checkShortFocus(slackID) {
                             var startSecs = Number(user.rescueTimeStart.get("secs"));
                             var targetSecs = Number(user.plans.get("num"))*60;
                             var url = "https://www.rescuetime.com/api/oauth/data";
-                            var secs = 0; 
+                            var secs = 0;
                             var d = new Date();
                             axios.get(url, {
                                 params: {
@@ -896,7 +1037,7 @@ function checkShortFocus(slackID) {
                                     if(data.rows[i][4] == target) {
                                         console.log("?????? "+data.rows[i][3]+" "+data.rows[i][4]+" and seconds: "+data.rows[i][1]);
                                         secs += Number(data.rows[i][1]);
-                                    }   
+                                    }
                                 }
                                 var diff = secs - startSecs;
                                 var message = [{
