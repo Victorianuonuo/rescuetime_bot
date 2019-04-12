@@ -13,6 +13,7 @@ var CLIENT_ID = process.env.CLIENT_ID;
 var CLIENT_SECRET = process.env.CLIENT_SECRET;
 var {updateMessage} = require('../quickReaction');
 var {startDialog} = require('./common');
+var {setShortFocus} = require('../focus/shortFocus');
 
 router.get('/googlecalendar/oauth', function(req, res){
     var oauth2Client = new google.auth.OAuth2(
@@ -267,15 +268,70 @@ router.post('/', async function(req, res){
     } else if(data.type == "block_actions") {
         if(data.actions[0].placeholder && data.actions[0].placeholder.text == "Choose an activity") {
             var activity = data.actions[0].selected_option.text.text;
-            bot.postMessage(slackID, `Tell me how long you want to spend on ${activity}? \n Say *I want to spend XX minutes on ${activity}* to me`, {as_user:true});
+            var msg = [
+                {
+                    "type": "divider"
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": `Tell me how long you want to spend on *${activity}*`
+                    }
+                },
+                {
+                    "type": "actions",
+                    "block_id": "shortFocusTime",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": "30 Minutes :clock1:",
+                                "emoji": true
+                            },
+                            "value": `30 ${activity}`
+                        },
+                        {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": "1 Hour :clock2:",
+                                "emoji": true
+                            },
+                            "value": `60 ${activity}`
+                        },
+                        {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": "90 Minutes :clock3:",
+                                "emoji": true
+                            },
+                            "value": `90 ${activity}`
+                        },
+                        {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": "2 Hours :clock4:",
+                                "emoji": true
+                            },
+                            "value": `120 ${activity}`
+                        }
+                    ]
+                }
+            ];
+            bot.postMessage(slackID, '', {as_user:true, blocks:msg});
+            //bot.postMessage(slackID, `Tell me how long you want to spend on ${activity}? \n Say *I want to spend XX minutes on ${activity}* to me`, {as_user:true});
         }
         else if(data.actions[0].value && data.actions[0].value=="quick_reaction") {
             updateMessage(bot, data);
         }
-        /*
-        if(data.actions[0].placeholder=="Choose an activity") {
-            bot.postMessage(slackID, "ok!", {as_user:true});
-        }*/
+        else if(data.actions[0] && data.actions[0].block_id=="shortFocusTime") {
+            //console.log("!!!!!!! ", data.actions[0].value);
+            setShortFocus(bot, data); 
+        }
         res.send();
     }
     else if(data.type == "interactive_message"){
