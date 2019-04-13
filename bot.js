@@ -675,7 +675,11 @@ bot.on("message", message => {
         console.log("Timenow: "+(new Date()));
         console.log('-----------------');
     }
-    const MESSAGE = "Hi! You are connected with Google Calendar now! Reminders for every day's events will come in at 7 am.";
+    const MESSAGE = "Hi! *You* are connected with Google Calendar now! Reminders for every day's events will come in at 7 am.";
+    const helpString = 'Tell me:\n\t'
+        + '*newPlan* to set a new plan to work on for this week\n\t'
+        + '*focus* to focus on a specific task for the next few minutes\n\t'
+        + '*Paste a doc URL* to let me help you keep on track';
     switch (message.type) {
     case "message":
         if (message.channel[0] === "D" && message.bot_id === undefined) {
@@ -725,7 +729,7 @@ bot.on("message", message => {
                                 distractionCheck(slackID);
                             }
                             else{
-                                bot.postMessage(message.user, MESSAGE, {as_user:true});
+                                bot.postMessage(message.user, helpString, {as_user:true});
                             }
                         }
                     }
