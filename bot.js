@@ -11,6 +11,7 @@ var axios = require('axios');
 var is_greet = false;
 var request = require('request');
 var {startDialog} = require('./routes/common');
+var {getDailySupportGIF, getMadeItGIF} = require('./util');
 const envKey = process.env.NUDGE_BOT_TOKEN;
 var superagent = require('superagent');
 var mammoth = require('mammoth');
@@ -541,7 +542,7 @@ function dailyProgressEval(slackID, data, week) {
                     }
                 };
                 text = `*${(targetHour-curTotalHour).toFixed(2)} hours left*. You almost there!! Don't give up!!`;
-                imgUrl = "https://media.giphy.com/media/12XDYvMJNcmLgQ/giphy.gif";
+                imgUrl = getDailySupportGIF();
             } else {
                 done = true;
                 update = {
@@ -555,7 +556,7 @@ function dailyProgressEval(slackID, data, week) {
                     }
                 };
                 text = `You finish ${goal}!! Well done!!`;
-                imgUrl = "https://media.giphy.com/media/1ZDCyTHjA4fYYKJPRx/giphy.gif";
+                imgUrl = getMadeItGIF();
             }
             var block_id = week? "weeklyReport":"dailyReminder";
             var val = [
