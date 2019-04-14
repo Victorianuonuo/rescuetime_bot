@@ -98,7 +98,7 @@ function distractionCheck(trigger=null){
             console.log(err);
         }else{
             for(var i=0;i<users.length;i++){
-                if(!trigger || trigger==users[i].slackID){
+                if(!trigger&&['UG0BHGBMX', 'UG0TDA2SW'].includes(users[i].slackID) || trigger==users[i].slackID){
                    distractionCheck_users(users[i], trigger==users[i].slackID);
                 }
             }
@@ -134,83 +134,84 @@ function distractionCheck_users(rescuetime_user, trigger=false){
                     }
                     var past_secs = 0;
                     var newDistractionsDelay = user;
-                    if(user){
-                        past_secs = user.time_spend+user.time_left;
-                        user.time_spend = secs;
-                        user.time_left = past_secs-secs;
-                        user.ts = Math.round(new Date().getTime()/1000)-3
-                    }else{
-                        newDistractionsDelay = new DistractionsDelay({
-                            slackID: rescuetime_user.slackID,
-                            date: date,
-                            time_left: 0,
-                            time_spend: secs,
-                            ts: Math.round(new Date().getTime()/1000)-3
-                        });
-                    }
-                    newDistractionsDelay.save()
-                    .then(() => {
-                        console.log("newDistractionsDelay save for ", rescuetime_user.slackID);
-                        console.log(newDistractionsDelay);
-                    })
-                    .catch((err) => {
-                        console.log("newDistractionsDelay save for "+rescuetime_user.slackID, err);
-                    });
-                    if(secs>2*60*60||trigger){
-                        if(!past_secs || secs>past_secs){
-                            var requestData = {
-                                as_user: true,
-                                "text": "You have spent "+(secs/60).toFixed(2)+" minutes on distractions today! Would you like to spend more time on it or let me remind you later?",
-                                "attachments": [
-                                {
-                                    "text": "",
-                                    "fallback": "You are unable to choose a distraction option",
-                                    "callback_id": "distraction_delay",
-                                    "color": "#3AA3E3",
-                                    "attachment_type": "default",
-                                    "actions": [
-                                    {
-                                        "name": "distraction_delay_30",
-                                        "text": "Spend another 30 minutes",
-                                        "type": "button",
-                                        "value": "30"
-                                    },
-                                    {
-                                        "name": "distraction_delay_60",
-                                        "text": "Spend another 60 minutes",
-                                        "type": "button",
-                                        "value": "60"
-                                    },
-                                    {
-                                        "name": "distraction_delay_90",
-                                        "text": "Spend another 90 minutes",
-                                        "type": "button",
-                                        "value": "90"
-                                    },
-                                    {
-                                        "name": "distraction_delay_120",
-                                        "text": "Spend another 120 minutes",
-                                        "type": "button",
-                                        "value": "120"
-                                    },
-                                    {
-                                        "name": "distraction_delay_later",
-                                        "text": "Remind me later",
-                                        "type": "button",
-                                        "value": "-1"
-                                    },
-                                    ]
-                                }
-                                ],
-                            };
-                            bot.postMessage(rescuetime_user.slackID,"",requestData);
+                    if(!user||user.time_spend!=secs){
+                        if(user){
+                            past_secs = user.time_spend+user.time_left;
+                            user.time_spend = secs;
+                            user.time_left = past_secs-secs;
+                            user.ts = Math.round(new Date().getTime()/1000)-3
+                        }else{
+                            newDistractionsDelay = new DistractionsDelay({
+                                slackID: rescuetime_user.slackID,
+                                date: date,
+                                time_left: 0,
+                                time_spend: secs,
+                                ts: Math.round(new Date().getTime()/1000)-3
+                            });
                         }
+                        newDistractionsDelay.save()
+                        .then(() => {
+                            console.log("newDistractionsDelay save for ", rescuetime_user.slackID);
+                            console.log(newDistractionsDelay);
+                        })
+                        .catch((err) => {
+                            console.log("newDistractionsDelay save for "+rescuetime_user.slackID, err);
+                        });
+                        if(secs>2*60*60||trigger){
+                            if(!past_secs || secs>past_secs){
+                                var requestData = {
+                                    as_user: true,
+                                    "text": "You have spent "+(secs/60).toFixed(2)+" minutes on distractions today! Would you like to spend more time on it or let me remind you later?",
+                                    "attachments": [
+                                    {
+                                        "text": "",
+                                        "fallback": "You are unable to choose a distraction option",
+                                        "callback_id": "distraction_delay",
+                                        "color": "#3AA3E3",
+                                        "attachment_type": "default",
+                                        "actions": [
+                                        {
+                                            "name": "distraction_delay_30",
+                                            "text": "Spend another 30 minutes",
+                                            "type": "button",
+                                            "value": "30"
+                                        },
+                                        {
+                                            "name": "distraction_delay_60",
+                                            "text": "Spend another 60 minutes",
+                                            "type": "button",
+                                            "value": "60"
+                                        },
+                                        {
+                                            "name": "distraction_delay_90",
+                                            "text": "Spend another 90 minutes",
+                                            "type": "button",
+                                            "value": "90"
+                                        },
+                                        {
+                                            "name": "distraction_delay_120",
+                                            "text": "Spend another 120 minutes",
+                                            "type": "button",
+                                            "value": "120"
+                                        },
+                                        {
+                                            "name": "distraction_delay_later",
+                                            "text": "Remind me later",
+                                            "type": "button",
+                                            "value": "-1"
+                                        },
+                                        ]
+                                    }
+                                    ],
+                                };
+                                bot.postMessage(rescuetime_user.slackID,"",requestData);
+                            }
+                        }
+                    }else{
+                        console.log("user don't spend more time on distractions", rescuetime_user.slackID);
                     }
-                })
-                .catch(function(err){
-                    console.log("an error occured");
                 });
-        });
+            });
     }
 }
 
