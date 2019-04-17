@@ -98,8 +98,8 @@ function distractionCheck(trigger=null){
             console.log(err);
         }else{
             for(var i=0;i<users.length;i++){
-                if(!trigger&&['UG0BHGBMX', 'UG0TDA2SW'].includes(users[i].slackID) || trigger==users[i].slackID){
-                //if(!trigger || trigger==users[i].slackID){
+                //if(!trigger&&['UG0BHGBMX', 'UG0TDA2SW'].includes(users[i].slackID) || trigger==users[i].slackID){
+                if(!trigger || trigger==users[i].slackID){
                    distractionCheck_users(users[i], trigger==users[i].slackID);
                 }
             }
