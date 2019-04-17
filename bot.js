@@ -139,8 +139,8 @@ function distractionCheck_users(rescuetime_user, trigger=false){
                         if(user){
                             past_secs = user.time_spend+user.time_left;
                             user.time_spend = secs;
-                            user.time_left = past_secs-secs;
-                            user.ts = Math.round(new Date().getTime()/1000)-3
+                            user.time_left = max(0, past_secs-secs);
+                            user.ts = Math.round(new Date().getTime()/1000)-3;
                         }else{
                             newDistractionsDelay = new DistractionsDelay({
                                 slackID: rescuetime_user.slackID,
