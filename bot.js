@@ -139,7 +139,7 @@ function distractionCheck_users(rescuetime_user, trigger=false){
                         if(user){
                             past_secs = user.time_spend+user.time_left;
                             user.time_spend = secs;
-                            user.time_left = max(0, past_secs-secs);
+                            user.time_left = Math.max(0, past_secs-secs);
                             user.ts = Math.round(new Date().getTime()/1000)-3;
                         }else{
                             newDistractionsDelay = new DistractionsDelay({
@@ -158,7 +158,7 @@ function distractionCheck_users(rescuetime_user, trigger=false){
                         .catch((err) => {
                             console.log("newDistractionsDelay save for "+rescuetime_user.slackID, err);
                         });
-                        if(secs>2*60*60||trigger){
+                        if(secs>30*60||trigger){
                             if(!past_secs || secs>past_secs){
                                 var requestData = {
                                     as_user: true,
