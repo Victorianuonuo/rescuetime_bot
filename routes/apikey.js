@@ -380,7 +380,7 @@ router.post('/', async function(req, res){
                 DistractionsDelay.findOne({slackID:slackID, date:date}).exec(function(err, user){
                     if(user&&Number(data.message_ts)>=user.ts){
                         if(value>0){
-                            user.time_left += value;
+                            user.time_left += value*60;
                             user.ts = Math.round(new Date().getTime()/1000);
                             user.save()
                             .then(() => {
