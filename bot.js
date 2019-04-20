@@ -162,7 +162,7 @@ function distractionCheck_users(rescuetime_user, trigger=false){
                             if(!past_secs || secs>past_secs){
                                 var requestData = {
                                     as_user: true,
-                                    "text": "You have spent "+(secs/60).toFixed(2)+" minutes on distractions today! Would you like to spend more time on it or let me remind you later?",
+                                    "text": "You have spent "+(secs/60).toFixed(2)+" minutes on distractions today! Try to avoid additional distractions.",
                                     "attachments": [
                                     {
                                         "text": "",
@@ -173,25 +173,25 @@ function distractionCheck_users(rescuetime_user, trigger=false){
                                         "actions": [
                                         {
                                             "name": "distraction_delay_30",
-                                            "text": "Spend another 30 minutes",
+                                            "text": "Allow another 30 minutes",
                                             "type": "button",
                                             "value": "30"
                                         },
                                         {
                                             "name": "distraction_delay_60",
-                                            "text": "Spend another 60 minutes",
+                                            "text": "Allow another 60 minutes",
                                             "type": "button",
                                             "value": "60"
                                         },
                                         {
                                             "name": "distraction_delay_90",
-                                            "text": "Spend another 90 minutes",
+                                            "text": "Allow another 90 minutes",
                                             "type": "button",
                                             "value": "90"
                                         },
                                         {
                                             "name": "distraction_delay_120",
-                                            "text": "Spend another 120 minutes",
+                                            "text": "Allow another 120 minutes",
                                             "type": "button",
                                             "value": "120"
                                         },
