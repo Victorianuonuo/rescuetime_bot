@@ -2,21 +2,15 @@
 var made_it_gif = [
     "https://media.giphy.com/media/1ZDCyTHjA4fYYKJPRx/giphy.gif",
     "https://media.giphy.com/media/zaqclXyLz3Uoo/giphy.gif",
-    "https://media.giphy.com/media/11Feog5PTumNnq/giphy.gif",
     "https://media.giphy.com/media/skmziDEEjiin6/giphy.gif",
-    "https://media.giphy.com/media/NppB385x566nm/giphy.gif",
     "https://media.giphy.com/media/MSCzxrLEF25feISTIz/giphy.gif",
     "https://media.giphy.com/media/lnlAifQdenMxW/giphy.gif",
     "https://media.giphy.com/media/l4EpblDY4msVtKAOk/giphy.gif",
-    "https://media.giphy.com/media/3ohs7O2afIz1a8bWPm/giphy.gif",
-    "https://media.giphy.com/media/NWyknTtYr114s/giphy.gif",
     "https://media.giphy.com/media/Wx9ygu5vPO5G61C9pk/giphy.gif",
     "https://media.giphy.com/media/dkGhBWE3SyzXW/giphy.gif",
     "https://media.giphy.com/media/l2Sqir5ZxfoS27EvS/giphy.gif",
     "https://media.giphy.com/media/YXpp9YxWhyWBy/giphy.gif",
-    "https://media.giphy.com/media/l0MYDTnJ3bebIQOac/giphy.gif",
-    "https://media.giphy.com/media/Afu7T2y2V7cdi/giphy.gif",
-    "https://media.giphy.com/media/YXPZ3W7UAVOZW/giphy.gif"
+    "https://media.giphy.com/media/l0MYDTnJ3bebIQOac/giphy.gif"
 ]
 
 var daily_support_gif = [
@@ -32,9 +26,7 @@ var daily_support_gif = [
     "https://media.giphy.com/media/NgN5nviC9YovK/giphy.gif",
     "https://media.giphy.com/media/7Japr7jWDPH3HryOnW/giphy.gif",
     "https://media.giphy.com/media/3ohzdTQaODeGPt90uk/giphy.gif",
-    "https://media.giphy.com/media/3o85xIehqbS3TVyLN6/giphy.gif",
-    "https://media.giphy.com/media/l46CgUEZgpaJblGwM/giphy.gif",
-    "https://media.giphy.com/media/j0NBEpVZzqRxjnr1eH/giphy.gif"
+    "https://media.giphy.com/media/3o85xIehqbS3TVyLN6/giphy.gif"
 ]
 
 function getMadeItGIF() {
