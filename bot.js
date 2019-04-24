@@ -16,6 +16,7 @@ const envKey = process.env.NUDGE_BOT_TOKEN;
 var superagent = require('superagent');
 var mammoth = require('mammoth');
 var word_count = require('word-count');
+var moment = require('moment');
 const pdf_parse = require('pdf-parse');
 mongoose.Promise = global.Promise;
 
@@ -110,7 +111,8 @@ function distractionCheck(trigger=null){
 function distractionCheck_users(rescuetime_user, trigger=false){
     var rescuetimeKey = rescuetime_user.rescuetime_key;
     var d = new Date();
-    var date = d.toISOString().split('T')[0];
+    //var date = d.toISOString().split('T')[0];;
+    var date = moment().format().split('T')[0];
     console.log('distractionCheck_users', date);
     if(rescuetimeKey) {
         var url = "https://www.rescuetime.com/api/oauth/data";
@@ -642,7 +644,7 @@ bot.on('start', function() {
     //       is_print=true;
     //     startCronJob(("00" + i).slice(-2),is_print);
     // }
-    startCronJob("07",true);
+    //startCronJob("07",true);
     startDailyReminder();
     startWeeklyPlanner();
     startShareLinksDailyReport();
@@ -652,17 +654,17 @@ bot.on('start', function() {
     //dailyReminder();
     //dailyCheck();
     //bot.postMessageToUser('so395', 'Hi, This is nudge bot!',{as_user:true}); 
-    const MESSAGE = "Hi! This is nudge bot. We will inform you whether you have any event during the day at 7 am. Start with giving us permission to read your Google Calendar, and we would not edit or delete your calendar.";
-    User.find({}, function(err, users){
-        user_ids = Array.from(users, usr=>usr.slackID);
-        bot.getUsers().then(users=>
-            users.members.forEach(function(user){
-                if(is_greet && !user_ids.includes(user.id) && !user.is_bot){
-                    bot.postMessage(user.id, MESSAGE, {as_user:true}).then(() => authenticate(user.id));
-                }
-            }
-        ));
-    });
+    //const MESSAGE = "Hi! This is nudge bot. We will inform you whether you have any event during the day at 7 am. Start with giving us permission to read your Google Calendar, and we would not edit or delete your calendar.";
+    // User.find({}, function(err, users){
+    //     user_ids = Array.from(users, usr=>usr.slackID);
+    //     bot.getUsers().then(users=>
+    //         users.members.forEach(function(user){
+    //             if(is_greet && !user_ids.includes(user.id) && !user.is_bot){
+    //                 bot.postMessage(user.id, MESSAGE, {as_user:true}).then(() => authenticate(user.id));
+    //             }
+    //         }
+    //     ));
+    // });
 
 });
 
@@ -685,19 +687,22 @@ bot.on("message", message => {
     switch (message.type) {
     case "message":
         if (message.channel[0] === "D" && message.bot_id === undefined) {
-            User.findOne({slackID: slackID}).exec(function(err, user){
+            Apikey.findOne({slackID: slackID}).exec(function(err, user){
+            //User.findOne({slackID: slackID}).exec(function(err, user){
                 if(err){
                     console.log(err);
                 } else {
                     //console.log(user);
                     if(!user){
-                        authenticate(slackID);
+                        //authenticate(slackID);
+                        authenResuetime(slackID);
                     } else {
                         console.log("message,", message);
                         if(message.text){
-                            if(message.text.toLowerCase().includes('calendar')){
-                                oneTimeCheck(user, true);
-                            }else if(message.text.toLowerCase().includes('rescuetime')){
+                            // if(message.text.toLowerCase().includes('calendar')){
+                            //     oneTimeCheck(user, true);
+                            // }else
+                            if(message.text.toLowerCase().includes('rescuetime')){
                                 authenResuetime(slackID);
                                 //requestResuetime(slackID);
                             }else if(message.text.includes("weeklyPlanner")){
@@ -708,9 +713,11 @@ bot.on("message", message => {
                                 dailyReminder(slackID);
                             }else if(message.text.includes("newPlan")) {
                                 newPlan(slackID);
-                            }else if(message.text.includes("slack")){
-                                authenSlack(slackID);
-                            }else if(message.text.includes("focus")) {
+                            }
+                            // else if(message.text.includes("slack")){
+                            //     authenSlack(slackID);
+                            // }
+                            else if(message.text.includes("focus")) {
                                 shortFocus(slackID);
                                 //checkShortFocus(slackID);
                             }else if(message.text.includes("I want to spend")) {
