@@ -13,6 +13,7 @@ var CLIENT_ID = process.env.CLIENT_ID;
 var CLIENT_SECRET = process.env.CLIENT_SECRET;
 var {updateMessage} = require('../quickReaction');
 var {startDialog} = require('./common');
+var moment = require('moment');
 var {setShortFocus} = require('../focus/shortFocus');
 
 router.get('/googlecalendar/oauth', function(req, res){
@@ -373,10 +374,11 @@ router.post('/', async function(req, res){
         }else if(["distraction_delay_30", "distraction_delay_60", "distraction_delay_90", "distraction_delay_120", "distraction_delay_later"].includes(data.actions[0].name)){
             var value = Number(data.actions[0].value);
             var d = new Date();
-            var date = d.toISOString().split('T')[0];
+            //var date = d.toISOString().split('T')[0];
+            var date = moment().format().split('T')[0];
             var ts = new Date(data.message_ts * 1000).toISOString().split('T')[0];
             console.log("date ts d message_ts", date, ts, d, data.message_ts);
-            if(date==ts){
+            if(true){
                 DistractionsDelay.findOne({slackID:slackID, date:date}).exec(function(err, user){
                     if(user&&Number(data.message_ts)>=user.ts){
                         if(value>0){
@@ -402,10 +404,11 @@ router.post('/', async function(req, res){
                         }
                     }
                 });
-            }else{
-                console.log("not equal date ts", date, ts, d, data.message_ts);
-                bot.postMessage(slackID, "Ooops! Don't click on the previous button!", {as_user:true});
             }
+            // else{
+            //     console.log("not equal date ts", date, ts, d, data.message_ts);
+            //     bot.postMessage(slackID, "Ooops! Don't click on the previous button!", {as_user:true});
+            // }
         }else if(data.actions[0].name == "new_plan_button"){
             var week = getMonday(new Date()).toDateString();
             
