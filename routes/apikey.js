@@ -381,22 +381,22 @@ router.post('/', async function(req, res){
             if(true){
                 DistractionsDelay.findOne({slackID:slackID, date:date}).exec(function(err, user){
                     if(user&&Number(data.message_ts)>=user.ts){
-                        if(value>0){
-                            user.time_left += value*60;
-                            user.ts = Math.round(new Date().getTime()/1000);
-                            user.save()
-                            .then(() => {
-                                console.log("newDistractionsDelay user save for ", slackID);
-                                console.log(user);
+                        user.time_left += value*60;
+                        user.ts = Math.round(new Date().getTime()/1000);
+                        user.save()
+                        .then(() => {
+                            console.log("newDistractionsDelay user save for ", slackID);
+                            console.log(user);
+                            if(value>0){
                                 bot.postMessage(slackID, "Ok! You can spend "+value+" minutes more on distractions.", {as_user:true});
-                            })
-                            .catch((err) => {
-                                console.log("newDistractionsDelay user save for "+slackID, err);
-                                bot.postMessage(slackID, "Ooops! Something wrong with button! Please try again later!", {as_user:true});
-                            });
-                        }else{
-                            bot.postMessage(slackID, "Ok! I will reminde you 30 minutes later!", {as_user:true});
-                        }
+                            }else{
+                                bot.postMessage(slackID, "Ok! I will reminde you 30 minutes later!", {as_user:true});
+                            }
+                        })
+                        .catch((err) => {
+                            console.log("newDistractionsDelay user save for "+slackID, err);
+                            bot.postMessage(slackID, "Ooops! Something wrong with button! Please try again later!", {as_user:true});
+                        });
                     }else{
                         console.log("update value failed in distraction_delay user message_ts", user, data.message_ts);
                         if(user){
