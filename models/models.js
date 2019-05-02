@@ -139,6 +139,10 @@ var distractionsDelaySchema = new Schema({
     ts: {
         type: String,
         required: true
+    },
+    skip: {
+        type: Boolean,
+        required: true
     }
 });
 distractionsDelaySchema.index({ slackID: 1, date: 1 }, { unique: true });

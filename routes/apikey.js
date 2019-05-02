@@ -371,8 +371,9 @@ router.post('/', async function(req, res){
         }else if(data.actions[0].name == "rescuetime_api_key_no"){
             bot.postMessage(slackID, "So sorry that you said no to add rescuetime. Maybe you would change your mind later.", {as_user:true});
             //res.send("So sorry that you said no to add rescuetime. Maybe you would change your mind later. When you are ready, try agin by saying rescuetime to me and input the right key.");
-        }else if(["distraction_delay_30", "distraction_delay_60", "distraction_delay_90", "distraction_delay_120", "distraction_delay_later"].includes(data.actions[0].name)){
-            var value = Number(data.actions[0].value);
+        }else if(["distraction_delay_minutes", "distraction_delay_later", "distraction_delay_skip"].includes(data.actions[0].name)){
+            var value = data.actions[0].type=='button'?Number(data.actions[0].value):Number(data.actions[0].selected_options[0].value);
+            //console.log("selected_options,",data.actions[0].selected_options[0].value);
             var d = new Date();
             //var date = d.toISOString().split('T')[0];
             var date = moment().format().split('T')[0];
@@ -381,16 +382,19 @@ router.post('/', async function(req, res){
             if(true){
                 DistractionsDelay.findOne({slackID:slackID, date:date}).exec(function(err, user){
                     if(user&&Number(data.message_ts)>=user.ts){
-                        user.time_left += value*60;
+                        user.time_left += value>=0?value*60:0;
                         user.ts = Math.round(new Date().getTime()/1000);
+                        user.skip = value==-1?true:user.skip;
                         user.save()
                         .then(() => {
                             console.log("newDistractionsDelay user save for ", slackID);
                             console.log(user);
                             if(value>0){
                                 bot.postMessage(slackID, "Ok! You can spend "+value+" minutes more on distractions.", {as_user:true});
-                            }else{
-                                bot.postMessage(slackID, "Ok! I will reminde you 30 minutes later!", {as_user:true});
+                            }else if(value==0){
+                                bot.postMessage(slackID, "Ok! I will remind you 30 minutes later if you spend more on distractions!", {as_user:true});
+                            }else if(value==-1){
+                                bot.postMessage(slackID, "Ok! I will remind you tomorrow! Have a good time today!", {as_user:true});
                             }
                         })
                         .catch((err) => {
