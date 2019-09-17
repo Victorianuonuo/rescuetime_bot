@@ -1,11 +1,6 @@
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); 
-var {User, Apikey, ConfigUser, WeeklyPlan, WeeklyMultiPlan} = require('../models/models');
-var CLIENT_ID = process.env.CLIENT_ID;
-var CLIENT_SECRET = process.env.CLIENT_SECRET;
-var request = require('request');
-var {WeeklyMultiPlan, ShortFocus, ShareLink} = require('../models/models');
-var {quickReactionTest, reactionMsg} = require('../quickReaction');
+var {Apikey} = require('../models/models');
 var axios = require('axios');
 mongoose.Promise = global.Promise;
 

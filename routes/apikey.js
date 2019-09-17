@@ -3,93 +3,14 @@ var express = require('express');
 var router = express.Router();
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); 
-var {User, Apikey, ConfigUser, WeeklyPlan, WeeklyMultiPlan, DistractionsDelay} = require('../models/models');
-var {bot, getMonday, authenResuetime} = require('../bot');
+var {Apikey, ConfigUser, WeeklyMultiPlan, DistractionsDelay} = require('../models/models');
+var {bot, getMonday} = require('../bot');
 var {verifyJson} = require('./common');
 var passport = require('passport');
-const {google} = require('googleapis');
-var googleAuth = require('google-auth-library');
-var CLIENT_ID = process.env.CLIENT_ID;
-var CLIENT_SECRET = process.env.CLIENT_SECRET;
 var {updateMessage} = require('../quickReaction');
 var {startDialog} = require('./common');
 var moment = require('moment');
 var {setShortFocus} = require('../focus/shortFocus');
-
-router.get('/googlecalendar/oauth', function(req, res){
-    var oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        process.env.DOMAIN + '/apikey/googlecalendar/connect/callback'
-    )
-    var url = oauth2Client.generateAuthUrl({
-        access_type: 'offline',
-        prompt: 'consent',
-        scope: [
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'email',
-            'https://www.googleapis.com/auth/calendar.readonly'
-        ],
-        state: encodeURIComponent(JSON.stringify({
-            auth_id: req.query.auth_id
-        }))
-    });
-    var slackID = req.query.auth_id;
-    res.redirect(url);
-})
-
-router.get('/googlecalendar/connect/callback', function(req, res) {
-    const code = req.query.code;
-    var slackID = JSON.parse(decodeURIComponent(req.query.state)).auth_id;
-    //console.log("google calendar req.query.state slackID", JSON.parse(decodeURIComponent(req.query.state)), slackID);
-    var oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        process.env.DOMAIN + '/apikey/googlecalendar/connect/callback'
-    )
-    //console.log("this is oauth", oauth2Client);
-    oauth2Client.getToken(code, function (err, tokens) {
-        if(err) {
-            console.log(err);
-        } else {
-            //set credentials. not entirely sure what this does but necessary for google plus
-            //when a person gives access to their google calendar, we also make a request to google plus
-            //with their oauth2client in order to get their email address which is then saved in the user object
-            //in mongodb.
-            oauth2Client.setCredentials(tokens);
-            //console.log("this is tokens", tokens);
-            var plus = google.plus('v1');
-            plus.people.get({auth: oauth2Client, userId: 'me'}, function(err, person){
-                if(err){
-                    console.log(err);
-                } else {
-                    //when a person
-                    console.log("this is googleplus person object", person);
-                    var tempEmail = person.data.emails[0].value;
-                    let auth_id = JSON.parse(decodeURIComponent(req.query.state));
-                    var newUser = new User({
-                        token: tokens,
-                        slackID: slackID,
-                        auth_id: auth_id.auth_id,
-                        email: tempEmail
-                    });
-                    newUser.save()
-                    .then( () => {
-                        res.status(200).send("Your account was successfuly authenticated");
-                        bot.postMessage(slackID, "Congratulations! You are successfully connected to google calendar. Reminders for every day's events will come in at 7 am.", {as_user:true});
-                        setTimeout(authenResuetime(slackID), 1000);
-                    })
-                    .catch((err) => {
-                        console.log(err.errmsg);
-                        console.log('error in newuser save of connectcallback');
-                        res.status(400).json({error:err});
-                        bot.postMessage(slackID, "Ooops!!! Error occurs! Please try again by saying Hi to me!", {as_user:true});
-                    })
-                }
-            });
-        }
-    });
-})
 
 router.get('/rescuetime/oauth', function(req, res, next) {
     var slackID = req.query.auth_id;
@@ -145,6 +66,7 @@ router.post('/', async function(req, res){
         var newApikey = new Apikey({
                         slackID: slackID,
                         rescuetime_key: token,
+                        features: [],
                     });
         var url = "https://www.rescuetime.com/anapi/alerts_feed?key="+token;
         console.log("urlll: ", url);

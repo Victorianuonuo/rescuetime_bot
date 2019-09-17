@@ -2,15 +2,12 @@ var SlackBot = require('slackbots');
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); // only when test bot.js
 const {google} = require('googleapis');
-var {User, Apikey, ConfigUser, WeeklyPlan, SlackKey, WeeklyMultiPlan, ShortFocus, ShareLink, DistractionsDelay} = require('./models/models');
+var {Apikey, SlackKey, WeeklyMultiPlan, ShortFocus, ShareLink, DistractionsDelay} = require('./models/models');
 var _ = require('underscore')
-var googleAuth = require('google-auth-library');
 var CronJob = require('cron').CronJob;
 var Config = require('./config');
 var axios = require('axios');
-var is_greet = false;
 var request = require('request');
-var {startDialog} = require('./routes/common');
 var {getDailySupportGIF, getMadeItGIF} = require('./util');
 const envKey = process.env.NUDGE_BOT_TOKEN;
 var superagent = require('superagent');
@@ -26,17 +23,6 @@ var bot = new SlackBot({
     name: 'nudgebot'
 });
 var {quickReactionTest, reactionMsg} = require('./quickReaction');
-
-const startCronJob = function(time, is_print=false){
-    var job = new CronJob({
-        cronTime: '00 00 '+time+' * * *',
-        onTick: function() {
-            console.log('startCronJob tick!');
-            dailyCheck(is_print);
-        }
-    });
-    job.start();
-}
 
 const startDistractionCheck = function(){
     var job = new CronJob({
@@ -673,13 +659,6 @@ function dailyReport(slackID, week, plans){
 
 bot.on('start', function() {
     console.log('bot start!');
-    // for (var i = 0; i <= 23; i++) {
-    //     var is_print=false;
-    //     if(i==7)
-    //       is_print=true;
-    //     startCronJob(("00" + i).slice(-2),is_print);
-    // }
-    //startCronJob("07",true);
     startDailyReminder();
     startWeeklyPlanner();
     startShareLinksDailyReport();
@@ -687,20 +666,7 @@ bot.on('start', function() {
     startDistractionCheck();
     //weeklyPlanner();
     //dailyReminder();
-    //dailyCheck();
     //bot.postMessageToUser('so395', 'Hi, This is nudge bot!',{as_user:true}); 
-    //const MESSAGE = "Hi! This is nudge bot. We will inform you whether you have any event during the day at 7 am. Start with giving us permission to read your Google Calendar, and we would not edit or delete your calendar.";
-    // User.find({}, function(err, users){
-    //     user_ids = Array.from(users, usr=>usr.slackID);
-    //     bot.getUsers().then(users=>
-    //         users.members.forEach(function(user){
-    //             if(is_greet && !user_ids.includes(user.id) && !user.is_bot){
-    //                 bot.postMessage(user.id, MESSAGE, {as_user:true}).then(() => authenticate(user.id));
-    //             }
-    //         }
-    //     ));
-    // });
-
 });
 
 
@@ -723,7 +689,6 @@ bot.on("message", message => {
     case "message":
         if (message.channel[0] === "D" && message.bot_id === undefined) {
             Apikey.findOne({slackID: slackID}).exec(function(err, user){
-            //User.findOne({slackID: slackID}).exec(function(err, user){
                 if(err){
                     console.log(err);
                 } else {
@@ -1276,18 +1241,6 @@ function authenticate(slackID){
 
 function oneTimeCheck(user, is_print=false){
     userAuthen(user, is_print);
-}
-
-function dailyCheck(is_print=false){
-    User.find({}, function(err, users) {
-        if(err){
-            console.log(err);
-        }else{
-            users.forEach(function(user) {
-                userAuthen(user, is_print);
-            });
-        }
-    });
 }
 
 function userAuthen(user, is_print=false){
