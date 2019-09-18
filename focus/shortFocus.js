@@ -1,6 +1,6 @@
 var mongoose = require('mongoose');
 //mongoose.connect(process.env.MONGODB_URI,{ useNewUrlParser: true }); 
-var {Apikey} = require('../models/models');
+var {Apikey, ShortFocus} = require('../models/models');
 var axios = require('axios');
 mongoose.Promise = global.Promise;
 
