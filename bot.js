@@ -609,7 +609,8 @@ bot.on("message", message => {
     const helpString = 'My features:\n\t'
         + 'Tell me *new plan* to set a new plan to work on for this week\n\t'
         + 'Tell me *focus* to focus on a specific task for the next few minutes\n\t'
-        + 'Tell me *distraction* to keep you not distracted';
+        + 'Tell me *distraction* to keep you not distracted\n\t'
+        + 'Tell me *list my features* to list features you have opted in';
     switch (message.type) {
     case "message":
         if (message.channel[0] === "D" && message.bot_id === undefined) {
@@ -629,6 +630,40 @@ bot.on("message", message => {
                                 authenResuetime(slackID);
                             }else if(message.text.includes('distractionCheck')){
                                 distractionCheck(slackID);
+                            }else if(message.text.includes("Remove feature new plan")){
+                                user.features = user.features.filter(feature => feature !== 'new_plan');
+                                user.save()
+                                .then(() => {
+                                    console.log("Remove feature new plan for ", slackID);
+                                    bot.postMessage(message.user, "Successfully remove new plan feature! When you change your mind, tell me *Add feature new plan* to add this feature back!", { as_user: true });
+                                })
+                                .catch((err) => {
+                                    console.log("Failure Remove feature new plan for " + slackID, err);
+                                    bot.postMessage(message.user, "Failure! Please try again!", { as_user: true });
+                                });
+                            }else if(message.text.includes("Remove feature focus")){
+                                user.features = user.features.filter(feature => feature !== 'focus');
+                                user.save()
+                                    .then(() => {
+                                        console.log("Remove feature focus for ", slackID);
+                                        bot.postMessage(message.user, "Successfully remove focus feature! When you change your mind, tell me *Add feature focus* to add this feature back!", { as_user: true });
+                                    })
+                                    .catch((err) => {
+                                        console.log("Failure Remove feature focus for " + slackID, err);
+                                        bot.postMessage(message.user, "Failure! Please try again!", { as_user: true });
+                                    });
+                            }else if(message.text.includes("Remove feature distraction")){
+                                user.features = user.features.filter(feature => feature !== 'distraction');
+                                user.save()
+                                    .then(() => {
+                                        console.log("Remove feature distraction for ", slackID);
+                                        bot.postMessage(message.user, "Successfully remove distraction feature! When you change your mind, tell me *Add feature focus* to add this feature back!", { as_user: true });
+                                    })
+                                    .catch((err) => {
+                                        console.log("Failure Remove feature distraction for " + slackID, err);
+                                        bot.postMessage(message.user, "Failure! Please try again!", { as_user: true });
+                                    });
+                                bot.postMessage(message.user, "When you change your mind, tell me *Add feature distraction* to add this feature back.", {as_user:true});
                             }else if(message.text.includes("Add feature new plan")){
                                 if(addedFeatures.includes("new_plan")){
                                     bot.postMessage(message.user, "You have already added it! Tell me *new plan* to set plans!", {as_user:true});
@@ -699,6 +734,8 @@ bot.on("message", message => {
                                 setShortFocus(slackID, message);
                             }else if(message.text.includes("quickReaction")) {
                                 quickReactionTest(bot, slackID);
+                            }else if(message.text.toLowerCase().includes("list my features")) {
+                                bot.postMessage(message.user, "Features you have:\n\t"+addedFeatures.join("\n\t"), {as_user:true});
                             }else{
                                 bot.postMessage(message.user, helpString, {as_user:true});
                             }
