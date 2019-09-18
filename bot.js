@@ -610,7 +610,9 @@ bot.on("message", message => {
         + 'Tell me *new plan* to set a new plan to work on for this week\n\t'
         + 'Tell me *focus* to focus on a specific task for the next few minutes\n\t'
         + 'Tell me *distraction* to keep you not distracted\n\t'
-        + 'Tell me *list my features* to list features you have opted in';
+        + 'Tell me *list my features* to list features you have opted in\n\t'
+        + 'Tell me *Add feature new plan\\focus\\distraction* to opt int\n\t'
+        + 'Tell me *Remove feature new plan\\focus\\distraction* to opt out.';
     switch (message.type) {
     case "message":
         if (message.channel[0] === "D" && message.bot_id === undefined) {
@@ -657,13 +659,12 @@ bot.on("message", message => {
                                 user.save()
                                     .then(() => {
                                         console.log("Remove feature distraction for ", slackID);
-                                        bot.postMessage(message.user, "Successfully remove distraction feature! When you change your mind, tell me *Add feature focus* to add this feature back!", { as_user: true });
+                                        bot.postMessage(message.user, "Successfully remove distraction feature! When you change your mind, tell me *Add feature distraction* to add this feature back!", { as_user: true });
                                     })
                                     .catch((err) => {
                                         console.log("Failure Remove feature distraction for " + slackID, err);
                                         bot.postMessage(message.user, "Failure! Please try again!", { as_user: true });
                                     });
-                                bot.postMessage(message.user, "When you change your mind, tell me *Add feature distraction* to add this feature back.", {as_user:true});
                             }else if(message.text.includes("Add feature new plan")){
                                 if(addedFeatures.includes("new_plan")){
                                     bot.postMessage(message.user, "You have already added it! Tell me *new plan* to set plans!", {as_user:true});
