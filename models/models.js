@@ -82,24 +82,6 @@ var shortFocusSchema = new Schema({
     }
 });
 
-var shareLinkSchema = new Schema({
-    slackID: {
-        type: String,
-        required: true,
-        index: true
-    },
-    original_link: {
-        type: String,
-        required: true,
-        index: true
-    },
-    link: String,
-    number: String,
-    isDocx: Number,
-    progress: Number,
-});
-shareLinkSchema.index({ slackID: 1, original_link: 1 }, { unique: true });
-
 var distractionsDelaySchema = new Schema({
     slackID: {
         type: String,
@@ -189,7 +171,6 @@ var SlackKey = mongoose.model('SlackKey', slackKeySchema);
 var UserPresence = mongoose.model('UserPresence', userPresenceSchema);
 var WeeklyMultiPlan = mongoose.model('WeeklyMultiPlan', weeklyMultiPlanSchema);
 var ShortFocus = mongoose.model('ShortFocuse', shortFocusSchema);
-var ShareLink = mongoose.model('ShareLink', shareLinkSchema);
 var DistractionsDelay = mongoose.model('DistractionsDelay', distractionsDelaySchema);
 module.exports = {
     Apikey: Apikey,
@@ -199,6 +180,5 @@ module.exports = {
     UserPresence: UserPresence,
     WeeklyMultiPlan: WeeklyMultiPlan,
     ShortFocus: ShortFocus,
-    ShareLink: ShareLink,
     DistractionsDelay: DistractionsDelay,
 };
