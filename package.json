@@ -4,7 +4,7 @@
   "description": "Nudge bot ",
   "main": "app.js",
   "dependencies": {
-    "axios": "^0.18.0",
+    "axios": "^0.21.1",
     "body-parser": "^1.18.3",
     "cookie-parser": "^1.4.3",
     "cron": "^1.6.0",
