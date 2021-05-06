@@ -24,7 +24,7 @@
     "request-promise": "^4.2.4",
     "slackbots": "^1.2.0",
     "superagent": "^4.1.0",
-    "underscore": "^1.9.1",
+    "underscore": "^1.12.1",
     "word-count": "^0.2.2",
     "yauzl": "^2.10.0"
   },
