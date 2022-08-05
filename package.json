@@ -14,7 +14,7 @@
     "https": "^1.0.0",
     "mammoth": "^1.4.8",
     "mongodb": "^3.1.13",
-    "mongoose": "^5.4.10",
+    "mongoose": "^5.7.5",
     "morgan": "^1.9.1",
     "passport": "^0.4.0",
     "passport-rescuetime": "^0.2.0",
